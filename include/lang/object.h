@@ -331,6 +331,7 @@ struct obj_alias_target {
 enum dependency_type {
 	dependency_type_declared,
 	dependency_type_pkgconf,
+	dependency_type_cmake,
 	dependency_type_threads,
 	dependency_type_external_library,
 	dependency_type_system,
@@ -341,6 +342,7 @@ enum dependency_public_type {
 	dependency_public_type_unset,
 	dependency_public_type_internal,
 	dependency_public_type_pkgconfig,
+	dependency_public_type_cmake,
 	dependency_public_type_system,
 	dependency_public_type_library,
 	dependency_public_type_not_found,

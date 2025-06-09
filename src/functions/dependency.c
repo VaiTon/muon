@@ -48,6 +48,20 @@ dep_get_pkgconfig_variable(struct workspace *wk, obj dep, uint32_t node, obj var
 }
 
 static bool
+dep_get_cmake_variable(struct workspace *wk, obj dep, uint32_t node, obj var, obj *res)
+{
+	struct obj_dependency *d = get_obj_dependency(wk, dep);
+	if (d->type != dependency_type_cmake) {
+		vm_error_at(wk, node, "dependency not from cmake");
+		return false;
+	}
+
+	// TODO: Implement this
+	vm_error_at(wk, node, "get_variable not implemented for cmake dependencies");
+	return false;
+}
+
+static bool
 func_dependency_get_pkgconfig_variable(struct workspace *wk, obj self, obj *res)
 {
 	struct args_norm an[] = { { obj_string }, ARG_TYPE_NULL };
@@ -116,6 +130,7 @@ dependency_type_to_public_type(struct obj_dependency *d)
 
 	switch (d->type) {
 	case dependency_type_pkgconf: return dependency_public_type_pkgconfig; break;
+	case dependency_type_cmake: return dependency_public_type_cmake; break;
 	case dependency_type_declared: return dependency_public_type_internal; break;
 	case dependency_type_system:
 	case dependency_type_threads: return dependency_public_type_system; break;
@@ -135,6 +150,7 @@ func_dependency_get_variable(struct workspace *wk, obj self, obj *res)
 		kw_internal,
 		kw_system,
 		kw_default_value,
+		kw_cmake,
 	};
 	struct args_kw akw[] = {
 		[kw_pkgconfig] = { "pkgconfig", obj_string },
@@ -142,6 +158,7 @@ func_dependency_get_variable(struct workspace *wk, obj self, obj *res)
 		[kw_internal] = { "internal", obj_string },
 		[kw_system] = { "system", obj_string },
 		[kw_default_value] = { "default_value", obj_string },
+		[kw_cmake] = { "cmake", obj_string },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
@@ -180,6 +197,13 @@ func_dependency_get_variable(struct workspace *wk, obj self, obj *res)
 				    wk, self, akw[kw_pkgconfig].node, akw[kw_pkgconfig].val, defines, res)) {
 				return true;
 			}
+		}
+		break;
+	}
+	case dependency_public_type_cmake: {
+		struct args_kw *arg = &akw[kw_cmake];
+		if (arg->set && dep_get_cmake_variable(wk, self, arg->node, arg->val, res)) {
+			return true;
 		}
 		break;
 	}
@@ -251,6 +275,7 @@ func_dependency_type_name(struct workspace *wk, obj self, obj *res)
 	case dependency_public_type_internal: n = "internal"; break;
 	case dependency_public_type_system: n = "system"; break;
 	case dependency_public_type_library: n = "library"; break;
+	case dependency_public_type_cmake: n = "cmake"; break;
 	case dependency_public_type_not_found: n = "not-found"; break;
 	case dependency_public_type_unset: UNREACHABLE; break;
 	}
