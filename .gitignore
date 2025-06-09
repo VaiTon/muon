@@ -11,3 +11,6 @@ subprojects/meson-tests
 subprojects/packagecache
 subprojects/pkgconf
 subprojects/tracy
+
+# clangd
+.cache
