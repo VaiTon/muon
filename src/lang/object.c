@@ -1980,6 +1980,7 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 		switch (dep->type) {
 		case dependency_type_declared: type = "declared"; break;
 		case dependency_type_pkgconf: type = "pkgconf"; break;
+		case dependency_type_cmake: type = "cmake"; break;
 		case dependency_type_threads: type = "threads"; break;
 		case dependency_type_external_library: type = "external_library"; break;
 		case dependency_type_system: type = "system"; break;
@@ -2073,8 +2074,7 @@ obj_to_s_opts(struct workspace *wk, obj o, struct tstr *sb, struct obj_to_s_opts
 		bool int_keys = get_obj_dict(wk, o)->flags & obj_dict_flag_int_key;
 
 		obj key, val;
-		obj_dict_for(wk, o, key, val)
-		{
+		obj_dict_for(wk, o, key, val) {
 			if (int_keys) {
 				tstr_pushf(wk, ctx.sb, "%d", key);
 			} else {
@@ -2584,8 +2584,7 @@ obj_to_json(struct workspace *wk, obj o, struct tstr *sb)
 		tstr_pushs(wk, sb, "null");
 		break;
 	}
-	default: vm_error(wk, "unable to convert %s to json", obj_type_to_s(get_obj_type(wk, o)));
-			 return false;
+	default: vm_error(wk, "unable to convert %s to json", obj_type_to_s(get_obj_type(wk, o))); return false;
 	}
 
 	return true;
