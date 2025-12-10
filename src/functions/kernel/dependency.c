@@ -29,6 +29,7 @@
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
+#include "platform/run_cmd.h"
 #include "tracy.h"
 
 static const struct {
@@ -52,6 +53,29 @@ static const struct {
 	{ "libwmf-config", dependency_lookup_method_config_tool },
 	{ "qmake", dependency_lookup_method_config_tool },
 };
+
+// Map of dependency names to their config-tool names
+static const struct {
+	const char *dep_name;
+	const char *config_tool;
+} dependency_config_tools[] = {
+	{ "pcap", "pcap-config" },
+	{ "sdl", "sdl-config" },
+	{ "cups", "cups-config" },
+	{ "libwmf", "libwmf-config" },
+	// Add more mappings as needed
+};
+
+static const char *
+get_config_tool_for_dependency(const char *dep_name)
+{
+	for (uint32_t i = 0; i < ARRAY_LEN(dependency_config_tools); ++i) {
+		if (strcmp(dep_name, dependency_config_tools[i].dep_name) == 0) {
+			return dependency_config_tools[i].config_tool;
+		}
+	}
+	return NULL;
+}
 
 bool
 dependency_lookup_method_from_s(const struct str *s, enum dependency_lookup_method *lookup_method)
@@ -307,7 +331,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 		    get_dependency_c_compiler(wk, ctx->machine),
 		    ctx->name,
 		    ctx->lib_mode == dep_lib_mode_static,
-			ctx->machine,
+		    ctx->machine,
 		    &info)) {
 		return true;
 	}
@@ -466,7 +490,8 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 					.wk = wk,
 					.fw = get_str(wk, fw),
 				};
-				fs_dir_foreach(wk, get_str(wk, fw_dir)->s,
+				fs_dir_foreach(wk,
+					get_str(wk, fw_dir)->s,
 					&scan_path_ctx,
 					get_dependency_extraframework_scan_path_cb);
 				if (!scan_path_ctx.res) {
@@ -592,6 +617,105 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 }
 
 static bool
+get_dependency_config_tool(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *found)
+{
+	*found = false;
+
+	const char *dep_name = get_cstr(wk, ctx->name);
+	const char *config_tool_name = get_config_tool_for_dependency(dep_name);
+
+	char fallback_name[256];
+	if (!config_tool_name) {
+		// Fallback: try <dep_name>-config
+		snprintf(fallback_name, sizeof(fallback_name), "%s-config", dep_name);
+		config_tool_name = fallback_name;
+	}
+
+	// Try to find the config tool
+	TSTR(config_tool_buf);
+	if (!fs_find_cmd(wk, &config_tool_buf, config_tool_name)) {
+		LO("config tool '%s' not found\n", config_tool_name);
+		return true;
+	}
+	const char *config_tool_path = config_tool_buf.buf;
+
+	// Get compile flags
+	obj compile_args = make_obj(wk, obj_array);
+	{
+		struct run_cmd_ctx cmd_ctx = { 0 };
+		const char *argv[] = { config_tool_path, "--cflags", NULL };
+		if (run_cmd_argv(wk, &cmd_ctx, (char *const *)argv, NULL, 0) && cmd_ctx.status == 0) {
+			// Parse the output and split by spaces
+			char *line = cmd_ctx.out.buf;
+			char *saveptr;
+			char *token = strtok_r(line, " \t\n", &saveptr);
+			while (token) {
+				obj_array_push(wk, compile_args, make_str(wk, token));
+				token = strtok_r(NULL, " \t\n", &saveptr);
+			}
+		}
+		run_cmd_ctx_destroy(&cmd_ctx);
+	}
+
+	// Get link flags
+	obj link_args = make_obj(wk, obj_array);
+	{
+		struct run_cmd_ctx cmd_ctx = { 0 };
+		const char *argv[] = { config_tool_path, "--libs", NULL };
+		if (run_cmd_argv(wk, &cmd_ctx, (char *const *)argv, NULL, 0) && cmd_ctx.status == 0) {
+			// Parse the output and split by spaces
+			char *line = cmd_ctx.out.buf;
+			char *saveptr;
+			char *token = strtok_r(line, " \t\n", &saveptr);
+			while (token) {
+				obj_array_push(wk, link_args, make_str(wk, token));
+				token = strtok_r(NULL, " \t\n", &saveptr);
+			}
+		}
+		run_cmd_ctx_destroy(&cmd_ctx);
+	}
+
+	// Try to get version
+	obj ver_str = 0;
+	{
+		struct run_cmd_ctx cmd_ctx = { 0 };
+		const char *argv[] = { config_tool_path, "--version", NULL };
+		if (run_cmd_argv(wk, &cmd_ctx, (char *const *)argv, NULL, 0) && cmd_ctx.status == 0) {
+			// Trim whitespace and newlines
+			char *version = cmd_ctx.out.buf;
+			size_t len = strlen(version);
+			while (len > 0
+				&& (version[len - 1] == '\n' || version[len - 1] == ' ' || version[len - 1] == '\t')) {
+				version[--len] = '\0';
+			}
+			if (len > 0) {
+				ver_str = make_str(wk, version);
+			}
+		}
+		run_cmd_ctx_destroy(&cmd_ctx);
+	}
+
+	*ctx->res = make_obj(wk, obj_dependency);
+	struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
+	dep->name = ctx->name;
+	dep->version = ver_str;
+	dep->flags |= dep_flag_found;
+	dep->type = dependency_type_pkgconf;
+
+	struct build_dep_raw raw = {
+		.compile_args = compile_args,
+		.link_args = link_args,
+	};
+
+	if (!dependency_create(wk, &raw, &dep->dep, 0)) {
+		return false;
+	}
+
+	*found = true;
+	return true;
+}
+
+static bool
 get_dependency_system(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *found)
 {
 	obj compiler = get_dependency_c_compiler(wk, ctx->machine);
@@ -624,6 +748,7 @@ static const native_dependency_lookup_handler dependency_lookup_handlers[] = {
 	[dependency_lookup_method_builtin] = 0,
 	[dependency_lookup_method_system] = get_dependency_system,
 	[dependency_lookup_method_extraframework] = get_dependency_extraframework,
+	[dependency_lookup_method_config_tool] = get_dependency_config_tool,
 };
 
 struct dependency_lookup_handler {
@@ -870,6 +995,15 @@ enum handle_special_dependency_result {
 static enum handle_special_dependency_result
 handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 {
+	// Check if this dependency has a config-tool mapping
+	if (ctx->lookup_method == dependency_lookup_method_auto) {
+		const char *dep_name = get_cstr(wk, ctx->name);
+		if (get_config_tool_for_dependency(dep_name)) {
+			ctx->lookup_method = dependency_lookup_method_config_tool;
+			return handle_special_dependency_result_continue;
+		}
+	}
+
 	if (strcmp(get_cstr(wk, ctx->name), "threads") == 0) {
 		*ctx->res = make_obj(wk, obj_dependency);
 		struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
