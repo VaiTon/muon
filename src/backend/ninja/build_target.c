@@ -37,6 +37,108 @@ enum write_tgt_src_flag {
 };
 
 static obj
+write_vala_two_stage_compilation(struct workspace *wk,
+	struct write_tgt_source_ctx *ctx,
+	obj val,
+	const char *src,
+	struct tstr *dest_path,
+	struct tstr *src_path)
+{
+	TSTR(c_path);
+	TSTR(vala_basename);
+	path_basename(wk, &vala_basename, src);
+
+	TSTR(output_dir);
+	path_dirname(wk, &output_dir, dest_path->buf);
+
+	if (vala_basename.len > 5 && strcmp(&vala_basename.buf[vala_basename.len - 5], ".vala") == 0) {
+		TSTR(c_basename);
+		tstr_pushn(wk, &c_basename, vala_basename.buf, vala_basename.len - 5);
+		tstr_pushs(wk, &c_basename, ".c");
+		path_join(wk, &c_path, output_dir.buf, c_basename.buf);
+	} else {
+		path_join(wk, &c_path, output_dir.buf, vala_basename.buf);
+		tstr_pushs(wk, &c_path, ".c");
+	}
+
+	obj vala_rule_name_arr;
+	if (!obj_dict_geti(wk, ctx->tgt->required_compilers, compiler_language_vala, &vala_rule_name_arr)) {
+		UNREACHABLE;
+	}
+	obj vala_rule_name = obj_array_index(wk, vala_rule_name_arr, 0);
+	obj vala_specialized_rule = obj_array_index(wk, vala_rule_name_arr, 1);
+
+	TSTR(esc_c_path);
+	TSTR(esc_src_path);
+	ninja_escape(wk, &esc_c_path, c_path.buf);
+	ninja_escape(wk, &esc_src_path, src_path->buf);
+
+	fprintf(ctx->out, "build %s: %s %s", esc_c_path.buf, get_cstr(wk, vala_rule_name), esc_src_path.buf);
+	if (ctx->implicit_deps) {
+		fputs(" | ", ctx->out);
+		fputs(get_cstr(wk, ctx->implicit_deps), ctx->out);
+	}
+	if (ctx->have_order_deps) {
+		fprintf(ctx->out, " || %s", get_cstr(wk, ctx->order_deps));
+	}
+	fputc('\n', ctx->out);
+
+	if (!vala_specialized_rule) {
+		obj vala_args = make_obj(wk, obj_array);
+
+		obj vala_comp;
+		if (!obj_dict_geti(wk, ctx->proj->toolchains[ctx->tgt->machine], compiler_language_vala, &vala_comp)) {
+			LOG_E("No Vala compiler defined");
+			return 0;
+		}
+
+		push_args(wk, vala_args, toolchain_compiler_debug(wk, vala_comp));
+
+		obj vala_args_joined = join_args_ninja(wk, vala_args);
+		fprintf(ctx->out, " ARGS = %s -d %s\n", get_cstr(wk, vala_args_joined), output_dir.buf);
+	} else {
+		fprintf(ctx->out, " ARGS = -d %s\n", output_dir.buf);
+	}
+
+	obj c_rule_name_arr;
+	if (!obj_dict_geti(wk, ctx->tgt->required_compilers, compiler_language_c, &c_rule_name_arr)) {
+		LOG_E("No C compiler available for compiling Vala-generated C code");
+		return 0;
+	}
+	obj c_rule_name = obj_array_index(wk, c_rule_name_arr, 0);
+	obj c_specialized_rule = obj_array_index(wk, c_rule_name_arr, 1);
+
+	TSTR(esc_dest_path);
+	ninja_escape(wk, &esc_dest_path, dest_path->buf);
+
+	fprintf(ctx->out, "build %s: %s %s", esc_dest_path.buf, get_cstr(wk, c_rule_name), esc_c_path.buf);
+	if (ctx->implicit_deps) {
+		fputs(" | ", ctx->out);
+		fputs(get_cstr(wk, ctx->implicit_deps), ctx->out);
+	}
+	if (ctx->have_order_deps) {
+		fprintf(ctx->out, " || %s", get_cstr(wk, ctx->order_deps));
+	}
+	fputc('\n', ctx->out);
+
+	if (!c_specialized_rule) {
+		obj processed_args = ctx->tgt->processed_args;
+		obj *joined_args = &ctx->joined_args;
+		if (!*joined_args) {
+			*joined_args = ca_build_target_joined_args(wk, processed_args);
+		}
+		obj c_args;
+		if (!obj_dict_geti(wk, *joined_args, compiler_language_c, &c_args)) {
+			LOG_E("No compiler defined for language c");
+			return 0;
+		}
+		fprintf(ctx->out, " ARGS = %s\n", get_cstr(wk, c_args));
+	}
+
+	return tstr_into_str(wk, dest_path);
+}
+
+static obj
 write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum compiler_language lang, obj val, enum write_tgt_src_flag flags)
 {
 	TracyCZoneAutoS;
@@ -68,6 +170,12 @@ write_tgt_source(struct workspace *wk, struct write_tgt_source_ctx *ctx, enum co
 	TSTR(src_path);
 	const char *src = get_file_path(wk, val);
 	path_relative_to(wk, &src_path, wk->build_root, src);
+
+	/* Handle two-stage compilation for Vala */
+	if (lang == compiler_language_vala && !(flags & write_tgt_src_flag_pch)) {
+		dest_res = write_vala_two_stage_compilation(wk, ctx, val, src, &dest_path, &src_path);
+		goto done;
+	}
 
 	/* build rules and args */
 
