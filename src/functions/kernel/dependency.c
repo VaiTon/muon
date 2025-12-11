@@ -12,6 +12,7 @@
 #include "backend/common_args.h"
 #include "buf_size.h"
 #include "coerce.h"
+#include "error.h"
 #include "external/pkgconfig.h"
 #include "functions/both_libs.h"
 #include "functions/compiler.h"
