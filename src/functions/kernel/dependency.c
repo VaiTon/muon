@@ -18,6 +18,7 @@
 #include "functions/compiler.h"
 #include "functions/file.h"
 #include "functions/kernel/dependency.h"
+#include "functions/kernel/dependency/known.h"
 #include "functions/kernel/subproject.h"
 #include "functions/string.h"
 #include "functions/subproject.h"
@@ -85,33 +86,7 @@ dependency_lookup_method_to_s(enum dependency_lookup_method method)
 	UNREACHABLE_RETURN;
 }
 
-enum dep_lib_mode {
-	dep_lib_mode_default,
-	dep_lib_mode_static,
-	dep_lib_mode_shared,
-};
-
-struct dep_lookup_ctx {
-	obj *res;
-	struct args_kw *default_options, *versions, *handler_kwargs;
-	enum requirement_type requirement;
-	enum machine_kind machine;
-	uint32_t err_node;
-	uint32_t fallback_node;
-	obj name;
-	obj names;
-	obj fallback;
-	obj not_found_message;
-	obj modules;
-	enum dep_lib_mode lib_mode;
-	enum dependency_lookup_method lookup_method;
-	bool disabler;
-	bool from_cache;
-	bool from_override;
-	bool found;
-};
-
-static obj
+obj
 get_dependency_c_compiler(struct workspace *wk, enum machine_kind machine)
 {
 	struct project *proj = current_project(wk);
@@ -308,7 +283,7 @@ get_dependency_pkgconfig(struct workspace *wk, struct dep_lookup_ctx *ctx, bool 
 		    get_dependency_c_compiler(wk, ctx->machine),
 		    ctx->name,
 		    ctx->lib_mode == dep_lib_mode_static,
-			ctx->machine,
+		    ctx->machine,
 		    &info)) {
 		return true;
 	}
@@ -363,7 +338,7 @@ get_dependency_extraframework_scan_path_cb(void *_ctx, const char *path)
 	return ir_cont;
 }
 
-static bool
+bool
 get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, bool *found)
 {
 	if (machine_definitions[ctx->machine]->sys != machine_system_darwin) {
@@ -467,7 +442,8 @@ get_dependency_extraframework(struct workspace *wk, struct dep_lookup_ctx *ctx, 
 					.wk = wk,
 					.fw = get_str(wk, fw),
 				};
-				fs_dir_foreach(wk, get_str(wk, fw_dir)->s,
+				fs_dir_foreach(wk,
+					get_str(wk, fw_dir)->s,
 					&scan_path_ctx,
 					get_dependency_extraframework_scan_path_cb);
 				if (!scan_path_ctx.res) {
@@ -871,39 +847,28 @@ enum handle_special_dependency_result {
 static enum handle_special_dependency_result
 handle_special_dependency(struct workspace *wk, struct dep_lookup_ctx *ctx)
 {
-	if (strcmp(get_cstr(wk, ctx->name), "threads") == 0) {
-		*ctx->res = make_obj(wk, obj_dependency);
-		struct obj_dependency *dep = get_obj_dependency(wk, *ctx->res);
-		dep->name = ctx->name;
-		dep->flags |= dep_flag_found;
-		dep->type = dependency_type_threads;
-
-		dep->dep.compile_args = make_obj(wk, obj_array);
-		obj_array_push(wk, dep->dep.compile_args, make_str(wk, "-pthread"));
-
-		dep->dep.link_args = make_obj(wk, obj_array);
-		obj_array_push(wk, dep->dep.link_args, make_str(wk, "-pthread"));
-		ctx->found = true;
-	} else if (strcmp(get_cstr(wk, ctx->name), "curses") == 0) {
-		// TODO: this is stupid
-		ctx->name = make_str(wk, "ncurses");
-		if (!get_dependency(wk, ctx)) {
-			return handle_special_dependency_result_error;
-		}
-	} else if (strcmp(get_cstr(wk, ctx->name), "appleframeworks") == 0) {
-		get_dependency_extraframework(wk, ctx, &ctx->found);
-	} else if (strcmp(get_cstr(wk, ctx->name), "") == 0) {
+	const struct str *dep_name = get_str(wk, ctx->name);
+	if (dep_name->len == 0) {
 		if (ctx->requirement == requirement_required) {
 			vm_error_at(wk, ctx->err_node, "dependency '' cannot be required");
 			return handle_special_dependency_result_error;
 		}
 		*ctx->res = make_obj(wk, obj_dependency);
 		ctx->found = true;
-	} else {
-		return handle_special_dependency_result_continue;
+		return handle_special_dependency_result_stop;
 	}
 
-	return handle_special_dependency_result_stop;
+	const struct known_dependency *known = get_known_dependency(dep_name);
+	if (known) {
+		if (!known->handler(wk, ctx, &ctx->found)) {
+			return handle_special_dependency_result_error;
+		}
+		if (ctx->found) {
+			return handle_special_dependency_result_stop;
+		}
+	}
+
+	return handle_special_dependency_result_continue;
 }
 
 FUNC_IMPL(kernel, dependency, tc_dependency)
@@ -1088,6 +1053,9 @@ FUNC_IMPL(kernel, dependency, tc_dependency)
 		.disabler = akw[kw_disabler].set && get_obj_bool(wk, akw[kw_disabler].val),
 		.modules = akw[kw_modules].val,
 		.lookup_method = lookup_method,
+		.found = false,
+		.from_cache = false,
+		.from_override = false,
 	};
 
 	obj name;
