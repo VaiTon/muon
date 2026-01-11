@@ -1,0 +1,197 @@
+# SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
+# SPDX-License-Identifier: GPL-3.0-only
+
+fs = import('fs')
+
+# Find a Wayland protocol XML file by name, with optional state and version.
+#
+# Usage:
+#   xml = wl_mod.find_protocol('xdg-shell')
+#   xml = wl_mod.find_protocol('xdg-decoration', state: 'unstable', version: 1)
+#
+# Returns: a file object that can be passed to scan_xml.
+func find_protocol(name str, state str: 'stable', version int:) -> file
+    # Validate state
+    if not ['stable', 'staging', 'unstable'].contains(state)
+        error(
+            f'Invalid \'state\' \'@state@\'. Must be one of \'stable\', \'staging\', \'unstable\'.',
+        )
+    endif
+
+    # Version rules:
+    # - stable: version must not be set
+    # - staging/unstable: version must be set
+    if state == 'stable'
+        if not is_null(version)
+            error('For stable protocols, the version keyword is not allowed.')
+        endif
+    else
+        if is_null(version)
+            error(
+                f'For \'@state@\' protocols, the \'version\' keyword is required.',
+            )
+        endif
+        if version <= 0
+            error('version must be a positive integer')
+        endif
+    endif
+
+    # Resolve the wayland-protocols pkgdatadir. Prefer dependency pkgconfig var,
+    # fall back to common installation paths if not found.
+    wp_dep = dependency('wayland-protocols', required: false)
+    if wp_dep.found()
+        pkgdatadir = wp_dep.get_pkgconfig_variable('pkgdatadir', default: '')
+    else
+        pkgdatadir = ''
+    endif
+
+    candidate_paths = []
+    if pkgdatadir != ''
+        # Typical layout inside wayland-protocols:
+        # - stable:   pkgdatadir/@name@/@name@.xml
+        #   or        pkgdatadir/stable/@name@/@name@.xml
+        # - staging:  pkgdatadir/staging/@name@/@name@.xml
+        # - unstable: pkgdatadir/unstable/@name@/@name@-unstable-v@version@.xml
+        if state == 'stable'
+            candidate_paths += pkgdatadir / name / f'@name@.xml'
+            candidate_paths += pkgdatadir / 'stable' / name / f'@name@.xml'
+        elif state == 'staging'
+            candidate_paths += pkgdatadir / 'staging' / name / f'@name@.xml'
+        else
+            # unstable
+            candidate_paths += pkgdatadir / 'unstable' / name / f'@name@-unstable-v@version@.xml'
+        endif
+    endif
+
+    # Also probe a few common fallback locations in the source tree if needed
+    # so projects bundling protocol XMLs can still use this function.
+    # These do not require state/version suffixes and follow common conventions.
+    source_root = meson.project_source_root()
+    candidate_paths += [
+        source_root / 'protocols' / f'@name@.xml',
+        source_root / 'deps' / 'wayland' / f'@name@.xml',
+        meson.current_source_dir() / f'@name@.xml',
+    ]
+
+    foreach p : candidate_paths
+        if fs.exists(p)
+            return files(p)[0]
+        endif
+    endforeach
+
+    error(
+        f'Wayland protocol XML for \'@name@\' not found. Searched: '
+        + '@0@'.format(', '.join(candidate_paths)),
+    )
+endfunc
+
+# Generate C and header files using wayland-scanner.
+#
+# Accepts one or more XMLs: strings or files.
+#
+# Keyword args:
+# - public: bool = false       -> selects 'public-code' vs 'private-code'
+# - client: bool = true        -> whether to generate client header
+# - server: bool = false       -> whether to generate server header
+# - include_core_only: bool = true -> since 0.64.0, include only wayland-<client|server>-core.h
+#
+# Returns: list of custom_tgt in order:
+#   [source, client-header?, server-header?]
+# Header file names follow <name>-<client|server>-protocol.h.
+func scan_xml(
+    xmls listify[file|str],
+    public bool: false,
+    client bool: true,
+    server bool: false,
+    include_core_only bool: true,
+) -> list[custom_tgt]
+
+    if is_null(xmls)
+        error('At least one XML must be provided to scan_xml')
+    endif
+
+    # Resolve wayland-scanner
+    # Prefer the program from its own pkgconfig variable if available,
+    # otherwise fall back to the executable name.
+    wl_scanner_dep = dependency('wayland-scanner', required: false, native: true)
+    wayland_scanner = 0
+    if wl_scanner_dep.found()
+        scanner_path = wl_scanner_dep.get_pkgconfig_variable('wayland_scanner', default: '')
+        if scanner_path != ''
+            wayland_scanner = find_program(scanner_path, required: false, native: true)
+        endif
+    endif
+    if is_null(wayland_scanner) or not wayland_scanner.found()
+        wayland_scanner = find_program('wayland-scanner', native: true)
+    endif
+
+    # Scanner subcommand for C code generation
+    code_cmd = public ? 'public-code' : 'private-code'
+
+    # Command flag for include_core_only if supported by scanner
+    core_only_flag = include_core_only ? ['--include-core-only'] : []
+
+    # Normalize inputs to files, and build outputs per input
+    res = []
+    foreach x : xmls.flatten()
+        xml_file = x
+        if typeof(xml_file) == 'str'
+            xml_file = meson.current_source_dir() / xml_file
+        endif
+
+        # Base name without extension for outputs
+        base = (typeof(xml_file) == 'file' ? xml_file.full_path() : xml_file).split('/')[-1]
+        # drop .xml
+        name = ''
+        parts = base.split('.')
+        foreach i : range(0, parts.length() - 1)
+            name += (i == 0) ? parts[i] : '.' + parts[i]
+        endforeach
+
+        # Outputs
+        src_out = f'@name@-protocol.c'
+        client_hdr_out = f'@name@-client-protocol.h'
+        server_hdr_out = f'@name@-server-protocol.h'
+
+        # Source generation
+        src_t = custom_target(
+            f'@name@_src',
+            input: xml_file,
+            output: src_out,
+            command: [wayland_scanner, code_cmd, '@INPUT@', '@OUTPUT@']
+            + core_only_flag,
+        )
+        res += src_t
+
+        # Client header generation
+        if client
+            client_t = custom_target(
+                f'@name@_client_h',
+                input: xml_file,
+                output: client_hdr_out,
+                command: [wayland_scanner, 'client-header', '@INPUT@', '@OUTPUT@']
+                + core_only_flag,
+            )
+            res += client_t
+        endif
+
+        # Server header generation
+        if server
+            server_t = custom_target(
+                f'@name@_server_h',
+                input: xml_file,
+                output: server_hdr_out,
+                command: [wayland_scanner, 'server-header', '@INPUT@', '@OUTPUT@']
+                + core_only_flag,
+            )
+            res += server_t
+        endif
+    endforeach
+
+    return res
+endfunc
+
+return {
+    'find_protocol': find_protocol,
+    'scan_xml': scan_xml,
+}
