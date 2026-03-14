@@ -359,11 +359,14 @@ static bool
 setup_implib_and_defs(struct workspace *wk, struct obj_build_target *tgt, const char *plain_name, struct args_kw *akw)
 {
 	{
-		const char *suffix = "-implib.lib";
 		obj comp = 0;
 		obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], tgt->dep_internal.link_language, &comp);
+		const char *suffix = 0;
 		if (comp) {
 			suffix = toolchain_compiler_flatten_one_optional(wk, toolchain_linker_implib_suffix(wk, comp));
+		}
+		if (!suffix) {
+			suffix = "-implib.lib";
 		}
 		TSTR(implib);
 		tstr_pushf(wk, &implib, "%s%s", plain_name, suffix);
