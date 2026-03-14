@@ -112,10 +112,10 @@ static void
 ca_get_buildtype_args(struct workspace *wk, obj comp, const struct ca_buildtype *buildtype, obj args_id)
 {
 	if (buildtype->debug) {
-		push_args(wk, args_id, toolchain_compiler_debug(wk, comp));
+		obj_array_extend(wk, args_id, toolchain_compiler_debug(wk, comp));
 	}
 
-	push_args(wk, args_id, toolchain_compiler_optimization(wk, comp, vm_enum_to_obj(wk, enum compiler_optimization_lvl, buildtype->opt)));
+	obj_array_extend(wk, args_id, toolchain_compiler_optimization(wk, comp, vm_enum_to_obj(wk, enum compiler_optimization_lvl, buildtype->opt)));
 }
 
 static void
@@ -130,7 +130,7 @@ ca_get_warning_args(struct workspace *wk,
 	const struct str *sl = get_str(wk, lvl_id);
 
 	if (str_eql(sl, &STR("everything"))) {
-		push_args(wk, args_id, toolchain_compiler_warn_everything(wk, comp));
+		obj_array_extend(wk, args_id, toolchain_compiler_warn_everything(wk, comp));
 		return;
 	}
 
@@ -144,10 +144,10 @@ ca_get_warning_args(struct workspace *wk,
 	default: UNREACHABLE; return;
 	}
 
-	push_args(wk, args_id, toolchain_compiler_warning_lvl(wk, comp, vm_enum_to_obj(wk, enum compiler_warning_lvl, lvl)));
+	obj_array_extend(wk, args_id, toolchain_compiler_warning_lvl(wk, comp, vm_enum_to_obj(wk, enum compiler_warning_lvl, lvl)));
 
 	if (tgt->pch && lvl >= 1) {
-		push_args(wk, args_id, toolchain_compiler_winvalid_pch(wk, comp));
+		obj_array_extend(wk, args_id, toolchain_compiler_winvalid_pch(wk, comp));
 	}
 }
 
@@ -162,7 +162,7 @@ ca_get_werror_args(struct workspace *wk,
 	ca_get_option_value_for_tgt(wk, proj, tgt, "werror", &active);
 
 	if (get_obj_bool(wk, active)) {
-		push_args(wk, args_id, toolchain_compiler_werror(wk, comp));
+		obj_array_extend(wk, args_id, toolchain_compiler_werror(wk, comp));
 	}
 }
 
@@ -208,7 +208,7 @@ ca_get_std_args(struct workspace *wk,
 			buf[len] = 0;
 
 			if (!toolchain_compiler_std_unsupported(wk, comp, buf)) {
-				push_args(wk, args_id, toolchain_compiler_set_std(wk, comp, buf));
+				obj_array_extend(wk, args_id, toolchain_compiler_set_std(wk, comp, buf));
 				return;
 			}
 		}
@@ -247,7 +247,7 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 	obj opt;
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_vscrt", &opt);
-	push_args(wk, args, toolchain_compiler_crt(wk, comp, get_cstr(wk, opt), buildtype->debug));
+	obj_array_extend(wk, args, toolchain_compiler_crt(wk, comp, get_cstr(wk, opt), buildtype->debug));
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_pgo", &opt);
 	if (!str_eql(get_str(wk, opt), &STR("off"))) {
@@ -261,12 +261,12 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 			UNREACHABLE;
 			return;
 		}
-		push_args(wk, args, toolchain_compiler_pgo(wk, comp, vm_enum_to_obj(wk, enum compiler_pgo_stage, stage)));
+		obj_array_extend(wk, args, toolchain_compiler_pgo(wk, comp, vm_enum_to_obj(wk, enum compiler_pgo_stage, stage)));
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &opt);
 	if (!str_eql(get_str(wk, opt), &STR("none"))) {
-		push_args(wk, args, toolchain_compiler_sanitize(wk, comp, get_cstr(wk, opt)));
+		obj_array_extend(wk, args, toolchain_compiler_sanitize(wk, comp, get_cstr(wk, opt)));
 	}
 
 	obj buildtype_val;
@@ -275,22 +275,22 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 	if (str_eql(get_str(wk, opt), &STR("true"))
 		|| (str_eql(get_str(wk, opt), &STR("if-release"))
 			&& str_eql(get_str(wk, buildtype_val), &STR("release")))) {
-		push_args(wk, args, toolchain_compiler_define(wk, comp, "NDEBUG"));
+		obj_array_extend(wk, args, toolchain_compiler_define(wk, comp, "NDEBUG"));
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_colorout", &opt);
 	if (!str_eql(get_str(wk, opt), &STR("never"))) {
-		push_args(wk, args, toolchain_compiler_color_output(wk, comp, get_cstr(wk, opt)));
+		obj_array_extend(wk, args, toolchain_compiler_color_output(wk, comp, get_cstr(wk, opt)));
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_lto", &opt);
 	if (get_obj_bool(wk, opt)) {
-		push_args(wk, args, toolchain_compiler_enable_lto(wk, comp));
+		obj_array_extend(wk, args, toolchain_compiler_enable_lto(wk, comp));
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_coverage", &opt);
 	if (get_obj_bool(wk, opt)) {
-		push_args(wk, args, toolchain_compiler_coverage(wk, comp));
+		obj_array_extend(wk, args, toolchain_compiler_coverage(wk, comp));
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_largefile", &opt);
@@ -307,14 +307,19 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 			// Skip for MSVC (uses explicit 64-bit APIs) and macOS (64-bit only).
 			// glibc, musl, uclibc, and all BSD libcs support this.
 			// On Android, support for transparent LFS is available depending on Bionic version.
-			const struct args *arg_syntax = toolchain_compiler_argument_syntax(wk, comp);
-			bool is_msvc = arg_syntax && arg_syntax->len > 0 && strcmp(arg_syntax->args[0], "msvc") == 0;
+			bool is_msvc = false;
+			{
+				obj arg_syntax, arg_syntax_args = toolchain_compiler_argument_syntax(wk, comp);
+				if (obj_array_flatten_one(wk, arg_syntax_args, &arg_syntax)) {
+					is_msvc = str_eql(get_str(wk, arg_syntax), &STR("msvc"));
+				}
+			}
 			bool is_darwin = machine->sys == machine_system_darwin;
 			enable = !is_msvc && !is_darwin && machine->address_bits == 32;
 		}
 
 		if (enable) {
-			push_args(wk, args, toolchain_compiler_define(wk, comp, "_FILE_OFFSET_BITS=64"));
+			obj_array_extend(wk, args, toolchain_compiler_define(wk, comp, "_FILE_OFFSET_BITS=64"));
 		}
 	}
 }
@@ -334,7 +339,7 @@ ca_get_base_compiler_args(struct workspace *wk,
 	obj args;
 	args = make_obj(wk, obj_array);
 
-	push_args(wk, args, toolchain_compiler_always(wk, comp));
+	obj_array_extend(wk, args, toolchain_compiler_always(wk, comp));
 
 	ca_get_std_args(wk, comp, proj, tgt, args);
 	ca_get_buildtype_args(wk, comp, &buildtype, args);
@@ -409,13 +414,13 @@ ca_setup_compiler_args_includes(struct workspace *wk, obj comp, obj include_dirs
 
 		switch (inc_type) {
 		case inc_type_normal:
-			push_args(wk, args, toolchain_compiler_include(wk, comp, dir));
+			obj_array_extend(wk, args, toolchain_compiler_include(wk, comp, dir));
 			break;
 		case inc_type_system:
-			push_args(wk, args, toolchain_compiler_include_system(wk, comp, dir));
+			obj_array_extend(wk, args, toolchain_compiler_include_system(wk, comp, dir));
 			break;
 		case inc_type_dirafter:
-			push_args(wk, args, toolchain_compiler_include_dirafter(wk, comp, dir));
+			obj_array_extend(wk, args, toolchain_compiler_include_dirafter(wk, comp, dir));
 			break;
 		}
 	};
@@ -451,15 +456,15 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 		obj args = ca_get_base_compiler_args(wk, proj, tgt, lang, comp);
 
 		if (tgt->flags & build_tgt_flag_pic) {
-			push_args(wk, args, toolchain_compiler_pic(wk, comp));
+			obj_array_extend(wk, args, toolchain_compiler_pic(wk, comp));
 		}
 
 		if (tgt->flags & build_tgt_flag_pie) {
-			push_args(wk, args, toolchain_compiler_pie(wk, comp));
+			obj_array_extend(wk, args, toolchain_compiler_pie(wk, comp));
 		}
 
 		if (tgt->flags & build_tgt_flag_visibility) {
-			push_args(wk, args, toolchain_compiler_visibility(wk, comp, vm_enum_to_obj(wk, enum compiler_visibility_type, tgt->visibility)));
+			obj_array_extend(wk, args, toolchain_compiler_visibility(wk, comp, vm_enum_to_obj(wk, enum compiler_visibility_type, tgt->visibility)));
 		}
 
 		obj dedupd;
@@ -509,8 +514,8 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 					obj args_dup;
 					obj_array_dup(wk, args, &args_dup);
 					obj_array_extend(wk, args_dup, args_post);
-					push_args(wk, args_dup, toolchain_compiler_emit_pch(wk, comp));
-					push_args(wk,
+					obj_array_extend(wk, args_dup, toolchain_compiler_emit_pch(wk, comp));
+					obj_array_extend(wk,
 						args_dup,
 						toolchain_compiler_force_language(
 							wk, comp, compiler_language_to_gcc_name(compiler_language_to_hdr(lang))));
@@ -525,7 +530,7 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 					return false;
 				}
 
-				push_args(wk, args, toolchain_compiler_include_pch(wk, comp, dest_path.buf));
+				obj_array_extend(wk, args, toolchain_compiler_include_pch(wk, comp, dest_path.buf));
 			}
 		}
 		obj_array_extend(wk, args, args_post);
@@ -577,9 +582,9 @@ static void
 ca_push_linker_args(struct workspace *wk,
 	obj comp,
 	const struct obj_build_target *tgt,
-	const struct args *args)
+	obj args)
 {
-	if (!args->len) {
+	if (!get_obj_array(wk, args)->len) {
 		return;
 	}
 
@@ -587,7 +592,7 @@ ca_push_linker_args(struct workspace *wk,
 		args = toolchain_compiler_linker_passthrough(wk, comp, args);
 	}
 
-	push_args(wk, tgt->dep_internal.link_args, args);
+	obj_array_extend(wk, tgt->dep_internal.link_args, args);
 }
 
 static bool
@@ -610,22 +615,22 @@ ca_setup_optional_b_args_linker(struct workspace *wk,
 			UNREACHABLE;
 			return false;
 		}
-		push_args(wk, args, toolchain_linker_pgo(wk, comp, stage));
+		obj_array_extend(wk, args, toolchain_linker_pgo(wk, comp, stage));
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_sanitize", &opt);
 	if (strcmp(get_cstr(wk, opt), "none") != 0) {
-		push_args(wk, args, toolchain_linker_sanitize(wk, comp, get_cstr(wk, opt)));
+		obj_array_extend(wk, args, toolchain_linker_sanitize(wk, comp, get_cstr(wk, opt)));
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_lto", &opt);
 	if (get_obj_bool(wk, opt)) {
-		push_args(wk, args, toolchain_linker_enable_lto(wk, comp));
+		obj_array_extend(wk, args, toolchain_linker_enable_lto(wk, comp));
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_coverage", &opt);
 	if (get_obj_bool(wk, opt)) {
-		push_args(wk, args, toolchain_linker_coverage(wk, comp));
+		obj_array_extend(wk, args, toolchain_linker_coverage(wk, comp));
 	}
 
 	return true;
@@ -709,7 +714,7 @@ ca_prepare_target_linker_args(struct workspace *wk,
 		}
 
 		if (tgt && tgt->flags & build_tgt_flag_pic) {
-			push_args(wk, tgt->dep_internal.link_args, toolchain_compiler_pic(wk, comp));
+			obj_array_extend(wk, tgt->dep_internal.link_args, toolchain_compiler_pic(wk, comp));
 		}
 	}
 

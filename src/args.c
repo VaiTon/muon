@@ -21,15 +21,6 @@
 #include "tracy.h"
 
 void
-push_args(struct workspace *wk, obj arr, const struct args *args)
-{
-	uint32_t i;
-	for (i = 0; i < args->len; ++i) {
-		obj_array_push(wk, arr, make_str(wk, args->args[i]));
-	}
-}
-
-void
 push_args_null_terminated(struct workspace *wk, obj arr, char *const *argv)
 {
 	char *const *arg;

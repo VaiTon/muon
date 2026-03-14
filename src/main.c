@@ -618,14 +618,12 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 {
 	bool set_linker = false, set_archiver = false;
 
-	const char *n1_args[32] = { "<value1>", "<value2>" };
-	struct args n1 = { n1_args, 2 };
 	struct toolchain_dump_opts opts = {
 		.s1 = "<value1>",
 		.s2 = "<value2>",
 		.b1 = true,
 		.i1 = 0,
-		.n1 = &n1,
+		.n1 = make_obj(wk, obj_array),
 	};
 
 	obj comp = 0;
@@ -729,18 +727,15 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 
 				opts.i1 = res;
 			} else if (strcmp(opt_ctx.optarg, "n1") == 0) {
-				n1.len = 0;
-
 				while (*sep) {
-					if (n1.len >= ARRAY_LEN(n1_args)) {
-						LOG_E("too many arguments for n1 value");
-						return false;
+					char* next_sep = strchr(sep, ',');
+					if (next_sep) {
+						*next_sep = 0;
 					}
 
-					n1.args[n1.len] = sep;
-					++n1.len;
+					obj_array_push(wk, opts.n1, make_str(wk, sep));
 
-					sep = strchr(sep, ',');
+					sep = next_sep;
 					if (!sep) {
 						break;
 					}
@@ -761,18 +756,12 @@ cmd_dump_toolchains(struct workspace *wk, uint32_t argc, uint32_t argi, char *co
 		toolchain_component_type_to_id(wk, toolchain_component_compiler, compiler->type[toolchain_component_compiler])->id,
 		toolchain_component_type_to_id(wk, toolchain_component_linker, compiler->type[toolchain_component_linker])->id,
 		toolchain_component_type_to_id(wk, toolchain_component_archiver, compiler->type[toolchain_component_archiver])->id);
-	printf("template arguments: s1: \"%s\", s2: \"%s\", b1: %s, i1: %d, n1: {",
+	printf("template arguments: s1: \"%s\", s2: \"%s\", b1: %s, i1: %d, ",
 		opts.s1,
 		opts.s2,
 		opts.b1 ? "true" : "false",
 		opts.i1);
-	for (uint32_t i = 0; i < opts.n1->len; ++i) {
-		printf("\"%s\"", opts.n1->args[i]);
-		if (i + 1 < opts.n1->len) {
-			printf(", ");
-		}
-	}
-	printf("}\n");
+	obj_printf(wk, "n1: { %o }\n", opts.n1);
 
 	toolchain_dump(wk, comp, &opts);
 

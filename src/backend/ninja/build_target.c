@@ -102,7 +102,7 @@ write_vala_two_stage_compilation(struct workspace *wk,
 			return 0;
 		}
 
-		push_args(wk, vala_args, toolchain_compiler_debug(wk, vala_comp));
+		obj_array_extend(wk, vala_args, toolchain_compiler_debug(wk, vala_comp));
 
 		obj vala_args_joined = join_args_ninja(wk, vala_args);
 		fprintf(ctx->out, " ARGS = %s -d %s\n", get_cstr(wk, vala_args_joined), output_dir.buf);

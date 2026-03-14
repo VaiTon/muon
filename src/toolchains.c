@@ -397,11 +397,11 @@ run_cmd_arr(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, cons
 }
 
 static bool
-run_cmd_args(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, const struct args *args)
+run_cmd_args(struct workspace *wk, struct run_cmd_ctx *cmd_ctx, obj cmd_arr, obj args)
 {
 	obj cmd_arr_to_run;
 	obj_array_dup(wk, cmd_arr, &cmd_arr_to_run);
-	push_args(wk, cmd_arr_to_run, args);
+	obj_array_extend(wk, cmd_arr_to_run, args);
 	return run_cmd_arr(wk, cmd_ctx, cmd_arr_to_run, 0);
 }
 
@@ -600,7 +600,7 @@ toolchain_component_detect(struct workspace *wk,
 	obj toolchains_with_no_version_arg = make_obj(wk, obj_array);
 	{
 		for (uint32_t i = 1 /* skip the empty toolchain */; i < registry->len; ++i) {
-			const struct args *args = 0;
+			obj args = 0;
 			const struct toolchain_registry_component *base = arr_get(registry, i);
 
 			if (preferred_type && i != preferred_type) {
@@ -633,15 +633,17 @@ toolchain_component_detect(struct workspace *wk,
 			compiler->type[component] = 0;
 			compiler->overrides[component] = 0;
 
-			if (!args->len) {
+			if (!get_obj_array(wk, args)->len) {
 				obj_array_push(wk, toolchains_with_no_version_arg, i);
 				continue;
 			}
 
+			obj head = obj_array_get_head(wk, args);
+
 			obj list = 0;
-			if (!obj_dict_index_str(wk, toolchains_grouped_by_version_arg, args->args[0], &list)) {
+			if (!obj_dict_index(wk, toolchains_grouped_by_version_arg, head, &list)) {
 				list = make_obj(wk, obj_array);
-				obj_dict_set(wk, toolchains_grouped_by_version_arg, make_str(wk, args->args[0]), list);
+				obj_dict_set(wk, toolchains_grouped_by_version_arg, head, list);
 			}
 
 			obj_array_push(wk, list, i);
@@ -705,9 +707,9 @@ toolchain_component_detect(struct workspace *wk,
 
 				bool ok;
 				if (do_linker_passthrough) {
-					const char *argv[] = { get_cstr(wk, version_arg) };
-					struct args args = { .args = argv, .len = 1 };
-					ok = run_cmd_args(wk, &cmd_ctx, cmd_arr, toolchain_compiler_linker_passthrough(wk, comp, &args));
+					obj argv = make_obj(wk, obj_array);
+					obj_array_push(wk, argv, version_arg);
+					ok = run_cmd_args(wk, &cmd_ctx, cmd_arr, toolchain_compiler_linker_passthrough(wk, comp, argv));
 				} else {
 					ok = run_cmd_arr(wk, &cmd_ctx, cmd_arr, get_cstr(wk, version_arg));
 				}
@@ -766,8 +768,8 @@ static void
 toolchain_component_compiler_populate_libdirs(struct workspace *wk, obj comp, struct obj_compiler *compiler)
 {
 	struct run_cmd_ctx cmd_ctx = { 0 };
-	const struct args *args = toolchain_compiler_print_search_dirs(wk, comp);
-	if (!args->len) {
+	obj args = toolchain_compiler_print_search_dirs(wk, comp);
+	if (!get_obj_array(wk, args)->len) {
 		goto done;
 	}
 
@@ -821,8 +823,8 @@ done:
 static void
 toolchain_component_compiler_refine_machine(struct workspace *wk, obj comp, struct obj_compiler *compiler)
 {
-	const struct args *args = toolchain_compiler_dumpmachine(wk, comp);
-	if (!args->len) {
+	obj args = toolchain_compiler_dumpmachine(wk, comp);
+	if (!get_obj_array(wk, args)->len) {
 		return;
 	}
 
@@ -908,10 +910,6 @@ toolchain_detect(struct workspace *wk,
  * Toolchain args
  ******************************************************************************/
 
-#define TOOLCHAIN_ARGS(...)                      \
-	static const char *argv[] = __VA_ARGS__; \
-	static struct args args = { .args = argv, .len = ARRAY_LEN(argv) };
-
 #define TOOLCHAIN_PROTO_0(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_0)
 #define TOOLCHAIN_PROTO_1i(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1i)
 #define TOOLCHAIN_PROTO_1s(name) static TOOLCHAIN_ARGS_RETURN name(TOOLCHAIN_SIG_1s)
@@ -925,37 +923,27 @@ toolchain_detect(struct workspace *wk,
 
 TOOLCHAIN_PROTO_0(toolchain_arg_empty_0)
 {
-	TOOLCHAIN_ARGS({ NULL });
-	args.len = 0;
-	return &args;
+	return make_obj(wk, obj_array);
 }
 
 TOOLCHAIN_PROTO_1i(toolchain_arg_empty_1i)
 {
-	TOOLCHAIN_ARGS({ NULL });
-	args.len = 0;
-	return &args;
+	return make_obj(wk, obj_array);
 }
 
 TOOLCHAIN_PROTO_1s(toolchain_arg_empty_1s)
 {
-	TOOLCHAIN_ARGS({ NULL });
-	args.len = 0;
-	return &args;
+	return make_obj(wk, obj_array);
 }
 
 TOOLCHAIN_PROTO_2s(toolchain_arg_empty_2s)
 {
-	TOOLCHAIN_ARGS({ NULL });
-	args.len = 0;
-	return &args;
+	return make_obj(wk, obj_array);
 }
 
 TOOLCHAIN_PROTO_1s1b(toolchain_arg_empty_1s1b)
 {
-	TOOLCHAIN_ARGS({ NULL });
-	args.len = 0;
-	return &args;
+	return make_obj(wk, obj_array);
 }
 
 TOOLCHAIN_PROTO_ns(toolchain_arg_empty_ns)
@@ -1338,7 +1326,7 @@ enum toolchain_arg_by_component {
 
 static obj handle_toolchain_arg_override;
 
-static const struct args *
+static obj
 handle_toolchain_arg_override_returning_args(struct workspace *wk, struct args_norm *an)
 {
 	obj list = 0;
@@ -1350,20 +1338,7 @@ handle_toolchain_arg_override_returning_args(struct workspace *wk, struct args_n
 		}
 	}
 
-	static const char *argv[32];
-	static struct args args;
-	memset((char*)argv, 0, sizeof(argv));
-	args = (struct args){ .args = argv, .len = 0 };
-
-	obj v;
-	obj_array_for(wk, list, v) {
-		assert(args.len < ARRAY_LEN(argv) && "increase size of argv");
-
-		argv[args.len] = get_cstr(wk, v);
-		++args.len;
-	}
-
-	return &args;
+	return list;
 }
 
 static bool
@@ -1381,35 +1356,35 @@ handle_toolchain_arg_override_returning_bool(struct workspace *wk, struct args_n
 	return get_obj_bool(wk, b);
 }
 
-static const struct args *
+static obj
 handle_toolchain_arg_override_0(TOOLCHAIN_SIG_0)
 {
 	struct args_norm an[] = { { .val = comp }, { ARG_TYPE_NULL } };
 	return handle_toolchain_arg_override_returning_args(wk, an);
 }
 
-static const struct args *
+static obj
 handle_toolchain_arg_override_1i(TOOLCHAIN_SIG_1i)
 {
 	struct args_norm an[] = { { .val = comp }, { .val = i1 }, { ARG_TYPE_NULL } };
 	return handle_toolchain_arg_override_returning_args(wk, an);
 }
 
-static const struct args *
+static obj
 handle_toolchain_arg_override_1s(TOOLCHAIN_SIG_1s)
 {
 	struct args_norm an[] = { { .val = comp }, { .val = make_str(wk, s1) }, { ARG_TYPE_NULL } };
 	return handle_toolchain_arg_override_returning_args(wk, an);
 }
 
-static const struct args *
+static obj
 handle_toolchain_arg_override_2s(TOOLCHAIN_SIG_2s)
 {
 	struct args_norm an[] = { { .val = comp }, { .val = make_str(wk, s1) }, { .val = make_str(wk, s2) }, { ARG_TYPE_NULL } };
 	return handle_toolchain_arg_override_returning_args(wk, an);
 }
 
-static const struct args *
+static obj
 handle_toolchain_arg_override_1s1b(TOOLCHAIN_SIG_1s1b)
 {
 	struct args_norm an[]
@@ -1417,13 +1392,10 @@ handle_toolchain_arg_override_1s1b(TOOLCHAIN_SIG_1s1b)
 	return handle_toolchain_arg_override_returning_args(wk, an);
 }
 
-static const struct args *
+static obj
 handle_toolchain_arg_override_ns(TOOLCHAIN_SIG_ns)
 {
-	obj list = make_obj(wk, obj_array);
-	push_args(wk, list, n1);
-
-	struct args_norm an[] = { { .val = comp }, { .val = list }, { ARG_TYPE_NULL } };
+	struct args_norm an[] = { { .val = comp }, { .val = n1 }, { ARG_TYPE_NULL } };
 	return handle_toolchain_arg_override_returning_args(wk, an);
 }
 
@@ -1462,23 +1434,9 @@ FOREACH_STATIC_LINKER_ARG(TOOLCHAIN_ARG_MEMBER)
 #undef TOOLCHAIN_ARG_MEMBER_
 
 static void
-toolchain_print_dumped_args(const struct args *args)
+toolchain_print_dumped_args(struct workspace *wk, obj args)
 {
-	if (args) {
-		printf("{");
-		for (uint32_t i = 0; i < args->len; ++i) {
-			printf("\"%s\"", args->args[i]);
-
-			if (i + 1 < args->len) {
-				printf(", ");
-			}
-		}
-		printf("}");
-	} else {
-		printf("false");
-	}
-
-	printf("\n");
+	obj_printf(wk, "%o\n", args);
 }
 
 static void
@@ -1488,49 +1446,49 @@ toolchain_print_dumped_bool(bool v)
 }
 
 static void
-toolchain_dump_args_0(const struct args *args)
+toolchain_dump_args_0(struct workspace *wk, obj args)
 {
-	toolchain_print_dumped_args(args);
+	toolchain_print_dumped_args(wk, args);
 }
 
 static void
-toolchain_dump_args_1i(const struct args *args)
+toolchain_dump_args_1i(struct workspace *wk, obj args)
 {
-	toolchain_print_dumped_args(args);
+	toolchain_print_dumped_args(wk, args);
 }
 
 static void
-toolchain_dump_args_1s(const struct args *args)
+toolchain_dump_args_1s(struct workspace *wk, obj args)
 {
-	toolchain_print_dumped_args(args);
+	toolchain_print_dumped_args(wk, args);
 }
 
 static void
-toolchain_dump_args_2s(const struct args *args)
+toolchain_dump_args_2s(struct workspace *wk, obj args)
 {
-	toolchain_print_dumped_args(args);
+	toolchain_print_dumped_args(wk, args);
 }
 
 static void
-toolchain_dump_args_1s1b(const struct args *args)
+toolchain_dump_args_1s1b(struct workspace *wk, obj args)
 {
-	toolchain_print_dumped_args(args);
+	toolchain_print_dumped_args(wk, args);
 }
 
 static void
-toolchain_dump_args_ns(const struct args *args)
+toolchain_dump_args_ns(struct workspace *wk, obj args)
 {
-	toolchain_print_dumped_args(args);
+	toolchain_print_dumped_args(wk, args);
 }
 
 static void
-toolchain_dump_args_0rb(bool v)
+toolchain_dump_args_0rb(struct workspace *wk, bool v)
 {
 	toolchain_print_dumped_bool(v);
 }
 
 static void
-toolchain_dump_args_1srb(bool v)
+toolchain_dump_args_1srb(struct workspace *wk, bool v)
 {
 	toolchain_print_dumped_bool(v);
 }
@@ -1541,14 +1499,14 @@ toolchain_dump(struct workspace *wk, obj comp, struct toolchain_dump_opts *opts)
 	const char *s1 = opts->s1, *s2 = opts->s2;
 	const bool b1 = opts->b1;
 	const uint32_t i1 = opts->i1;
-	const struct args *n1 = opts->n1;
+	obj n1 = opts->n1;
 
 	printf("%-13s %-25s %-4s %s\n", "component", "name", "sig", "args");
 	printf("%-13s %-25s %-4s %s\n", "---", "---", "---", "---");
 
 #define TOOLCHAIN_ARG_MEMBER_(name, _name, component, return_type, _type, params, names) \
 	printf("%-13s %-25s %-4s ", #component, #name, #_type);                          \
-	toolchain_dump_args_##_type(toolchain_##component##_name names);
+	toolchain_dump_args_##_type(wk, toolchain_##component##_name names);
 #define TOOLCHAIN_ARG_MEMBER(name, comp, type) TOOLCHAIN_ARG_MEMBER_(name, _##name, comp, type)
 
 	FOREACH_COMPILER_ARG(TOOLCHAIN_ARG_MEMBER)
@@ -1557,6 +1515,36 @@ toolchain_dump(struct workspace *wk, obj comp, struct toolchain_dump_opts *opts)
 
 #undef TOOLCHAIN_ARG_MEMBER
 #undef TOOLCHAIN_ARG_MEMBER_
+}
+
+const char *
+toolchain_compiler_flatten_one(struct workspace *wk, obj comp_id, obj args)
+{
+	obj e;
+	if (obj_array_flatten_one(wk, args, &e)) {
+		return get_cstr(wk, e);
+	} else {
+		const char *id = toolchain_component_type_to_id(wk,
+			toolchain_component_compiler,
+			get_obj_compiler(wk, comp_id)->type[toolchain_component_compiler])
+					 ->public_id;
+		vm_error(wk,
+			"handler for compiler %s returned an invalid value, "
+			"an array containing a single string was expected",
+			id);
+		return 0;
+	}
+}
+
+const char *
+toolchain_compiler_flatten_one_optional(struct workspace *wk, obj args)
+{
+	obj e;
+	if (obj_array_flatten_one(wk, args, &e)) {
+		return get_cstr(wk, e);
+	} else {
+		return 0;
+	}
 }
 
 const char *

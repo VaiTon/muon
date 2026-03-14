@@ -9,7 +9,6 @@
 
 #include <string.h>
 
-#include "args.h"
 #include "buf_size.h"
 #include "coerce.h"
 #include "functions/build_target.h"
@@ -364,10 +363,7 @@ setup_implib_and_defs(struct workspace *wk, struct obj_build_target *tgt, const 
 		obj comp = 0;
 		obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], tgt->dep_internal.link_language, &comp);
 		if (comp) {
-			const struct args *suffix_args = toolchain_linker_implib_suffix(wk, comp);
-			if (suffix_args && suffix_args->len) {
-				suffix = suffix_args->args[0];
-			}
+			suffix = toolchain_compiler_flatten_one_optional(wk, toolchain_linker_implib_suffix(wk, comp));
 		}
 		TSTR(implib);
 		tstr_pushf(wk, &implib, "%s%s", plain_name, suffix);

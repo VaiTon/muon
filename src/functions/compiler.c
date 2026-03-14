@@ -120,22 +120,22 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	obj_array_extend(wk, compiler_args, compiler->cmd_arr[toolchain_component_compiler]);
 
-	push_args(wk, compiler_args, toolchain_compiler_always(wk, comp));
+	obj_array_extend(wk, compiler_args, toolchain_compiler_always(wk, comp));
 
 	ca_get_std_args(wk, comp, current_project(wk), NULL, compiler_args);
 
 	if (compiler->lang == compiler_language_cpp) {
-		push_args(wk, compiler_args, toolchain_compiler_permissive(wk, comp));
+		obj_array_extend(wk, compiler_args, toolchain_compiler_permissive(wk, comp));
 	}
 
 	if (opts->werror && opts->werror->set && get_obj_bool(wk, opts->werror->val)) {
-		push_args(wk, compiler_args, toolchain_compiler_werror(wk, comp));
+		obj_array_extend(wk, compiler_args, toolchain_compiler_werror(wk, comp));
 	}
 
 	switch (opts->mode) {
 	case compiler_check_mode_run:
 	case compiler_check_mode_link:
-		push_args(wk, compiler_args, toolchain_linker_fuse_ld(wk, comp));
+		obj_array_extend(wk, compiler_args, toolchain_linker_fuse_ld(wk, comp));
 		ca_get_option_link_args(wk, comp, current_project(wk), NULL, compiler_args);
 	/* fallthrough */
 	case compiler_check_mode_compile:
@@ -170,9 +170,9 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	obj_array_push(wk, compiler_args, source_path);
 
 	if (opts->mode == compiler_check_mode_preprocess) {
-		push_args(wk, compiler_args, toolchain_compiler_preprocess_only(wk, comp));
+		obj_array_extend(wk, compiler_args, toolchain_compiler_preprocess_only(wk, comp));
 	} else if (opts->mode == compiler_check_mode_compile) {
-		push_args(wk, compiler_args, toolchain_compiler_compile_only(wk, comp));
+		obj_array_extend(wk, compiler_args, toolchain_compiler_compile_only(wk, comp));
 	}
 
 	TSTR(test_output_path);
@@ -189,18 +189,23 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 		} else {
 			path_join(wk, &test_output_path, wk->muon_private, "test.");
 			tstr_pushs(wk, &test_output_path, compiler_language_extension(compiler->lang));
-			tstr_pushs(wk, &test_output_path, toolchain_compiler_object_ext(wk, comp)->args[0]);
+			const char *ext
+				= toolchain_compiler_flatten_one(wk, comp, toolchain_compiler_object_ext(wk, comp));
+			if (!ext) {
+				return false;
+			}
+			tstr_pushs(wk, &test_output_path, ext);
 			output_path = test_output_path.buf;
 		}
 
-		push_args(wk, compiler_args, toolchain_compiler_output(wk, comp, output_path));
+		obj_array_extend(wk, compiler_args, toolchain_compiler_output(wk, comp, output_path));
 	}
 
 	// Set up linker arguments
 	if (opts->mode == compiler_check_mode_link || opts->mode == compiler_check_mode_run) {
-		push_args(wk, compiler_args, toolchain_compiler_linker_delimiter(wk, comp));
+		obj_array_extend(wk, compiler_args, toolchain_compiler_linker_delimiter(wk, comp));
 
-		push_args(wk,
+		obj_array_extend(wk,
 			compiler_args,
 			toolchain_compiler_linker_passthrough(wk, comp, toolchain_linker_fatal_warnings(wk, comp)));
 
@@ -1700,7 +1705,7 @@ compiler_has_argument(struct workspace *wk,
 	obj args;
 	args = make_obj(wk, obj_array);
 
-	push_args(wk, args, toolchain_compiler_werror(wk, comp_id));
+	obj_array_extend(wk, args, toolchain_compiler_werror(wk, comp_id));
 
 	if (get_obj_type(wk, arg) == obj_string) {
 		obj_array_push(wk, args, arg);
@@ -1939,10 +1944,10 @@ FUNC_IMPL(compiler, get_argument_syntax, tc_string, func_impl_flag_impure)
 		return false;
 	}
 
-	const struct args *a = toolchain_compiler_argument_syntax(wk, self);
-	const char *syntax = "other";
-	if (a->len) {
-		syntax = a->args[0];
+	const char *syntax = toolchain_compiler_flatten_one_optional(wk, toolchain_compiler_argument_syntax(wk, self));
+
+	if (!syntax) {
+		syntax = "other";
 	}
 
 	*res = make_str(wk, syntax);
@@ -2026,7 +2031,7 @@ find_library(struct workspace *wk, obj compiler, const char *libname, obj extra_
 		bool ok = false;
 		struct compiler_check_opts opts = { .mode = compiler_check_mode_link, .comp_id = compiler };
 		opts.args = make_obj(wk, obj_array);
-		push_args(wk, opts.args, toolchain_linker_lib(wk, compiler, libname));
+		obj_array_extend(wk, opts.args, toolchain_linker_lib(wk, compiler, libname));
 
 		const char *src = "int main(void) { return 0; }\n";
 		if (!compiler_check(wk, &opts, src, 0, &ok)) {
@@ -2261,7 +2266,7 @@ FUNC_IMPL(compiler, preprocess, tc_array, func_impl_flag_impure)
 	obj base_cmd;
 	obj_array_dup(wk, comp->cmd_arr[toolchain_component_compiler], &base_cmd);
 
-	push_args(wk, base_cmd, toolchain_compiler_preprocess_only(wk, self));
+	obj_array_extend(wk, base_cmd, toolchain_compiler_preprocess_only(wk, self));
 
 	const char *lang = 0;
 	switch (comp->lang) {
@@ -2275,7 +2280,7 @@ FUNC_IMPL(compiler, preprocess, tc_array, func_impl_flag_impure)
 		return false;
 	}
 
-	push_args(wk, base_cmd, toolchain_compiler_force_language(wk, self, lang));
+	obj_array_extend(wk, base_cmd, toolchain_compiler_force_language(wk, self, lang));
 
 	ca_get_std_args(wk, self, current_project(wk), NULL, base_cmd);
 
@@ -2289,8 +2294,8 @@ FUNC_IMPL(compiler, preprocess, tc_array, func_impl_flag_impure)
 		obj_array_extend_nodup(wk, base_cmd, dep.compile_args);
 	}
 
-	push_args(wk, base_cmd, toolchain_compiler_include(wk, self, "@OUTDIR@"));
-	push_args(wk, base_cmd, toolchain_compiler_include(wk, self, "@CURRENT_SOURCE_DIR@"));
+	obj_array_extend(wk, base_cmd, toolchain_compiler_include(wk, self, "@OUTDIR@"));
+	obj_array_extend(wk, base_cmd, toolchain_compiler_include(wk, self, "@CURRENT_SOURCE_DIR@"));
 
 	if (!add_include_directory_args(wk, &akw[kw_include_directories], have_dep ? &dep : 0, self, base_cmd)) {
 		return false;

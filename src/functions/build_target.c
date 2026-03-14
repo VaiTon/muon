@@ -8,7 +8,6 @@
 
 #include <string.h>
 
-#include "args.h"
 #include "coerce.h"
 #include "error.h"
 #include "functions/build_target.h"
@@ -82,12 +81,7 @@ tgt_src_to_compiled_path(struct workspace *wk,
 	{
 		obj comp_id;
 		if (obj_dict_geti(wk, current_project(wk)->toolchains[tgt->machine], opts->lang, &comp_id)) {
-
-			const struct args *args = opts->get_ext(wk, comp_id);
-			if (args->len) {
-				assert(args->len == 1);
-				ext = args->args[0];
-			} else {
+			if (!(ext = toolchain_compiler_flatten_one(wk, comp_id, opts->get_ext(wk, comp_id)))) {
 				return false;
 			}
 		}

@@ -105,11 +105,11 @@ enum compiler_visibility_type {
 #define TOOLCHAIN_SIG_1s TOOLCHAIN_PARAMS_BASE, const char *s1
 #define TOOLCHAIN_SIG_2s TOOLCHAIN_PARAMS_BASE, const char *s1, const char *s2
 #define TOOLCHAIN_SIG_1s1b TOOLCHAIN_PARAMS_BASE, const char *s1, bool b1
-#define TOOLCHAIN_SIG_ns TOOLCHAIN_PARAMS_BASE, const struct args *n1
+#define TOOLCHAIN_SIG_ns TOOLCHAIN_PARAMS_BASE, obj n1
 #define TOOLCHAIN_SIG_0rb TOOLCHAIN_PARAMS_BASE
 #define TOOLCHAIN_SIG_1srb TOOLCHAIN_PARAMS_BASE, const char *s1
 
-#define TOOLCHAIN_ARGS_RETURN const struct args *
+#define TOOLCHAIN_ARGS_RETURN obj
 #define TOOLCHAIN_PARAMS_0 TOOLCHAIN_ARGS_RETURN, 0, (TOOLCHAIN_SIG_0), (TOOLCHAIN_PARAM_NAMES_BASE)
 #define TOOLCHAIN_PARAMS_1i TOOLCHAIN_ARGS_RETURN, 1i, (TOOLCHAIN_SIG_1i), (TOOLCHAIN_PARAM_NAMES_BASE, i1)
 #define TOOLCHAIN_PARAMS_1s TOOLCHAIN_ARGS_RETURN, 1s, (TOOLCHAIN_SIG_1s), (TOOLCHAIN_PARAM_NAMES_BASE, s1)
@@ -119,12 +119,12 @@ enum compiler_visibility_type {
 #define TOOLCHAIN_PARAMS_0rb bool, 0rb, (TOOLCHAIN_SIG_0rb), (TOOLCHAIN_PARAM_NAMES_BASE)
 #define TOOLCHAIN_PARAMS_1srb bool, 1srb, (TOOLCHAIN_SIG_1srb), (TOOLCHAIN_PARAM_NAMES_BASE, s1)
 
-typedef const struct args *((*compiler_get_arg_func_0)(TOOLCHAIN_SIG_0));
-typedef const struct args *((*compiler_get_arg_func_1i)(TOOLCHAIN_SIG_1i));
-typedef const struct args *((*compiler_get_arg_func_1s)(TOOLCHAIN_SIG_1s));
-typedef const struct args *((*compiler_get_arg_func_2s)(TOOLCHAIN_SIG_2s));
-typedef const struct args *((*compiler_get_arg_func_1s1b)(TOOLCHAIN_SIG_1s1b));
-typedef const struct args *((*compiler_get_arg_func_ns)(TOOLCHAIN_SIG_ns));
+typedef obj ((*compiler_get_arg_func_0)(TOOLCHAIN_SIG_0));
+typedef obj ((*compiler_get_arg_func_1i)(TOOLCHAIN_SIG_1i));
+typedef obj ((*compiler_get_arg_func_1s)(TOOLCHAIN_SIG_1s));
+typedef obj ((*compiler_get_arg_func_2s)(TOOLCHAIN_SIG_2s));
+typedef obj ((*compiler_get_arg_func_1s1b)(TOOLCHAIN_SIG_1s1b));
+typedef obj ((*compiler_get_arg_func_ns)(TOOLCHAIN_SIG_ns));
 typedef bool ((*compiler_get_arg_func_0rb)(TOOLCHAIN_SIG_0rb));
 typedef bool ((*compiler_get_arg_func_1srb)(TOOLCHAIN_SIG_1srb));
 
@@ -299,7 +299,7 @@ struct toolchain_dump_opts {
 	const char *s1, *s2;
 	bool b1;
 	uint32_t i1;
-	const struct args *n1;
+	obj n1;
 };
 void toolchain_dump(struct workspace *wk, obj comp, struct toolchain_dump_opts *opts);
 
@@ -315,5 +315,8 @@ FOREACH_STATIC_LINKER_ARG(TOOLCHAIN_ARG_MEMBER)
 #undef TOOLCHAIN_ARG_MEMBER_
 
 const char *compiler_log_prefix(enum compiler_language lang, enum machine_kind machine);
+
+const char *toolchain_compiler_flatten_one(struct workspace *wk, obj comp_id, obj args);
+const char *toolchain_compiler_flatten_one_optional(struct workspace *wk, obj args);
 
 #endif
