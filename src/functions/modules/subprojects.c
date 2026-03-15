@@ -135,7 +135,7 @@ static int32_t
 subprojects_process_progress_decorate_sort_compare(const void *_a, const void *_b)
 {
 	const struct subprojects_process_progress_decorate_elem *a = _a, *b = _b;
-	return a->dur > b->dur ? -1 : 1;
+	return (int)(1000 * (b->dur - a->dur));
 }
 
 static void
