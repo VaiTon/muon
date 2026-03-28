@@ -108,6 +108,27 @@ struct pkgconf_lookup_ctx {
 	enum muon_pkgconfig_fragment_source frag_source;
 };
 
+static void
+process_fragment(pkgconf_client_t *client, const pkgconf_fragment_t *frag, void *_ctx)
+{
+	TracyCZoneAutoS;
+	struct pkgconf_lookup_ctx *ctx = _ctx;
+
+	if (frag->type == 'I' && pkgconf_fragment_has_system_dir(client, frag)) {
+		// skip
+	} else {
+		struct muon_pkgconfig_fragment muon_frag = {
+			.type = frag->type,
+			.data = make_str(ctx->wk, frag->data),
+		};
+		obj default_dest = ctx->frag_source == muon_pkgconfig_fragment_source_cflags
+							? ctx->info->compile_args
+							: ctx->info->link_args;
+		muon_pkgconfig_parse_fragment(ctx->wk, &muon_frag, ctx->info, default_dest);
+	}
+	TracyCZoneAutoE;
+}
+
 static bool
 apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, int maxdepth)
 {
@@ -129,19 +150,17 @@ apply_and_collect(pkgconf_client_t *client, pkgconf_pkg_t *world, void *_ctx, in
 	{
 		const pkgconf_fragment_t *frag = node->data;
 
-		/* L("got option: -'%c' '%s'", frag->type, frag->data); */
+		// L("got option: -'%c' '%s'", frag->type, frag->data);
+		process_fragment(client, frag, ctx);
 
-		if (frag->type == 'I' && pkgconf_fragment_has_system_dir(client, frag)) {
-			continue;
+		const pkgconf_node_t *iter;
+		PKGCONF_FOREACH_LIST_ENTRY(frag->children.head, iter)
+		{
+			const pkgconf_fragment_t *child_frag = iter->data;
+
+			// L("  got child option: -'%c' '%s'", child_frag->type, child_frag->data);
+			process_fragment(client, child_frag, ctx);
 		}
-
-		struct muon_pkgconfig_fragment muon_frag = {
-			.type = frag->type,
-			.data = make_str(ctx->wk, frag->data),
-		};
-		obj default_dest = ctx->frag_source == muon_pkgconfig_fragment_source_cflags ? ctx->info->compile_args :
-											       ctx->info->link_args;
-		muon_pkgconfig_parse_fragment(ctx->wk, &muon_frag, ctx->info, default_dest);
 	}
 
 ret:
