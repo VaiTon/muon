@@ -39,6 +39,10 @@ parse_ansi(const struct str *s, void *usr_ctx, parse_ansi_flush_cb flush_cb, par
 				esc_num += (c - '0');
 			} else if (c == '[') {
 				// nothing
+			} else if (c == 'K') {
+				parsing_esc = false;
+				start = i + 1;
+				esc_num = 0;
 			} else {
 				assert(false && "invalid character in ansi escape");
 			}
