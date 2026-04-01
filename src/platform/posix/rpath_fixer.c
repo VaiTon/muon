@@ -43,7 +43,7 @@ struct elf_section {
 
 struct elf_dynstr {
 	uint64_t off;
-	uint32_t tag;
+	uint64_t tag;
 	uint32_t index;
 	bool found;
 };
@@ -60,7 +60,7 @@ union elf_hdrbuf {
 
 #define EHDR(BUF, CL, FLD) CL == elf_class_32 ? BUF.e32.FLD : BUF.e64.FLD
 #define SHDR(BUF, CL, FLD) CL == elf_class_32 ? BUF.s32.FLD : BUF.s64.FLD
-#define DHDR(BUF, CL, FLD) CL == elf_class_32 ? BUF.d32.FLD : BUF.d64.FLD
+#define DHDR(BUF, CL, FLD) CL == elf_class_32 ? (uint64_t)BUF.d32.FLD : (uint64_t)BUF.d64.FLD
 
 static bool
 parse_elf(FILE *f, struct elf *elf)
