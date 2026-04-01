@@ -35,10 +35,6 @@ add_repository_()
 
 setup_repositories_()
 {
-	if [ "$cfg_tcc" ]; then
-		add_repository_ "http://dl-cdn.alpinelinux.org/alpine/edge/community"
-	fi
-
 	if [ "$cfg_website" ]; then
 		add_repository_ "http://dl-cdn.alpinelinux.org/alpine/v${alpine_version}/community"
 	fi
@@ -72,10 +68,6 @@ install_packages_()
 	# alternative c compilers
 	if [ "$cfg_clang" ]; then
 		queue_package_ clang
-	fi
-	if [ "$cfg_tcc" ]; then
-		queue_package_ tcc
-		queue_package_ tcc-libs-static # tcc 0.9.27_git20220323-r1 is broken without this
 	fi
 
 	# for static builds
@@ -156,11 +148,6 @@ step_build_small_()
 		-Dlibpkgconf=disabled \
 		build-small
 	build/muon -C build-small samu
-}
-
-step_build_tcc_()
-{
-	CC=tcc tools/ci/bootstrap.sh build-tcc
 }
 
 step_test_gcc_()
@@ -261,7 +248,6 @@ runner=""
 branch_name=""
 
 cfg_sudo=""
-cfg_tcc=""
 cfg_clang=""
 cfg_website=""
 cfg_reuse=""
@@ -274,7 +260,6 @@ if [ "${JOB_ID:-}" ]; then
 	branch_name="$GIT_REF"
 
 	cfg_sudo=1
-	cfg_tcc=1
 	cfg_clang=1
 	cfg_website=1
 	cfg_reuse=1
@@ -336,10 +321,6 @@ fi
 #####################
 
 queue_step_ "build_gcc"
-
-if [ "$cfg_tcc" ]; then
-	queue_step_ "build_tcc"
-fi
 
 queue_step_ "build_small"
 
