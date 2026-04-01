@@ -46,7 +46,7 @@ if not get_option('libpkgconf').disabled()
             'warning_level': '1',
         },
         kwargs: dependency_kwargs,
-        version: '>=1.9.0',
+        version: '>=2.4.0',
     )
 
     if dep_libpkgconf.found()
