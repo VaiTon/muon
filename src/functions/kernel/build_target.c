@@ -845,7 +845,17 @@ create_target(struct workspace *wk,
 				continue;
 			}
 
-			obj_dict_seti(wk, tgt->args, lang_args[i].l, akw[lang_args[i].kw].val);
+			// Append the applicable args for the language.
+			obj l = lang_args[i].l;
+			obj val = akw[lang_args[i].kw].val;
+			obj args = 0;
+			obj_dict_geti(wk, tgt->args, l, &args);
+			if (args == 0) {
+				obj_array_dup(wk, val, &args);
+				obj_dict_seti(wk, tgt->args, l, args);
+			} else {
+				obj_array_extend(wk, args, val);
+			}
 		}
 	}
 
