@@ -268,24 +268,27 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 	}
 
 	if (ctx->lib_mode != dep_lib_mode_default) {
-		obj libopt;
-		if (ctx->lib_mode == dep_lib_mode_static) {
-			libopt = make_str(wk, "default_library=static");
-		} else {
-			libopt = make_str(wk, "default_library=shared");
-		}
+		const char *libopt = ctx->lib_mode == dep_lib_mode_static ? "static" : "shared";
 
 		if (ctx->default_options->set) {
-			if (!obj_array_in(wk, ctx->default_options->val, libopt)) {
-				obj newopts;
+			obj newopts = 0;
+			switch (get_obj_type(wk, ctx->default_options->val)) {
+			case obj_dict:
+				obj_dict_dup(wk, ctx->default_options->val, &newopts);
+				obj_dict_set(wk, newopts, make_str(wk, "default_library"), make_str(wk, libopt));
+				break;
+			case obj_array: {
 				obj_array_dup(wk, ctx->default_options->val, &newopts);
-				obj_array_push(wk, newopts, libopt);
-
-				ctx->default_options->val = newopts;
+				obj_array_push(wk, newopts, make_strf(wk, "default_library=%s", libopt));
+				break;
 			}
+			default: UNREACHABLE;
+			}
+			ctx->default_options->val = newopts;
 		} else {
-			ctx->default_options->val = make_obj(wk, obj_array);
-			obj_array_push(wk, ctx->default_options->val, libopt);
+			ctx->default_options->val = make_obj(wk, obj_dict);
+			obj_dict_set(
+				wk, ctx->default_options->val, make_str(wk, "default_library"), make_str(wk, libopt));
 			ctx->default_options->set = true;
 		}
 	}
@@ -308,10 +311,18 @@ handle_dependency_fallback(struct workspace *wk, struct dep_lookup_ctx *ctx, boo
 				goto not_found;
 			}
 		} else {
+			const char *lib_mode = 0;
+			switch (ctx->lib_mode) {
+			case dep_lib_mode_default: lib_mode = ""; break;
+			case dep_lib_mode_static: lib_mode = " (static)"; break;
+			case dep_lib_mode_shared: lib_mode = " (shared)"; break;
+			}
+
 			vm_warning_at(wk,
 				ctx->fallback_node,
-				"subproject does not override dependency %o for %s machine",
+				"subproject does not override dependency %o%s for %s machine",
 				ctx->name,
+				lib_mode,
 				machine_kind_to_s(ctx->machine));
 			goto not_found;
 		}
