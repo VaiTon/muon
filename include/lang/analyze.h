@@ -8,7 +8,7 @@
 
 #include "error.h"
 #include "lang/func_lookup.h"
-#include "workspace.h"
+#include "lang/workspace.h"
 
 struct ast;
 
