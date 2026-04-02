@@ -428,7 +428,7 @@ bounds_adjust(uint32_t len, int64_t *i)
 		*i += len;
 	}
 
-	return *i < len;
+	return *i >= 0 && *i < len;
 }
 
 bool
