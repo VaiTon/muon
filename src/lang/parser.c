@@ -791,6 +791,9 @@ parse_fstring(struct parser *p, bool assignment_allowed)
 			n = n->r = make_node_t(p, node_type_string);
 		}
 		n->data.str = make_strn(p->wk, str.s, str.len);
+	} else if (!res) {
+		res = make_node_t(p, node_type_string);
+		res->data.str = make_strn(p->wk, fstr->s, 0);
 	}
 
 	return res;
@@ -1137,12 +1140,14 @@ parse_prec(struct parser *p, enum parse_precedence prec, bool assignment_allowed
 {
 	p->behavior.advance(p);
 
-	if (!p->parse_rules[p->previous.type].prefix) {
+	const parse_prefix_fn prefix_fn = p->parse_rules[p->previous.type].prefix;
+	if (!prefix_fn) {
 		parse_error(p, 0, "expected expression, got %s", token_type_to_s(p->previous.type));
 		return make_node_t(p, node_type_id);
 	}
 
-	struct node *l = p->parse_rules[p->previous.type].prefix(p, assignment_allowed);
+	struct node *l = prefix_fn(p, assignment_allowed);
+	assert(l && "Prefix parse function returned null");
 
 	while (prec <= p->parse_rules[p->current.type].precedence) {
 		p->behavior.advance(p);
