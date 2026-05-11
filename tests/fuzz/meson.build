@@ -7,6 +7,16 @@ if not (cc.cmd_array()[0].startswith('afl-clang') and afl_fuzz.found())
     subdir_done()
 endif
 
+fuzz_harness = executable(
+    'fuzz-harness',
+    'harness.c',
+    include_directories: include_dir,
+    dependencies: deps,
+    link_with: muon_lib,
+    c_args: muon_c_args,
+    cpp_args: muon_c_args,
+)
+
 run_target(
     'fuzz-lang',
     command: [
@@ -14,11 +24,8 @@ run_target(
         '-x', meson.current_source_dir() / 'meson.dict',
         '-i', meson.current_source_dir() / 'lang',
         '-o', meson.current_build_dir() / 'lang',
-        '--', muon,
-        'internal',
-        'eval',
-        '-s',
-        '-',
+        '--', fuzz_harness,
+        '@@',
     ],
 )
 
@@ -35,10 +42,9 @@ run_target(
         afl_fuzz,
         '-i', fuzz_dump_input,
         '-o', meson.current_build_dir() / 'dump',
-        '--', muon,
-        'internal',
-        'eval',
+        '--', fuzz_harness,
         meson.current_source_dir() / 'load_dump.meson',
+        '@@',
     ],
     depends: [fuzz_dump_input_dat],
 )
