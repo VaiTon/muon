@@ -1440,7 +1440,12 @@ vm_execute_native(struct workspace *wk, uint32_t func_idx, obj self)
 		TracyCZoneName(tctx_func, func_name, strlen(func_name));
 #endif
 
-		ok = wk->vm.behavior.native_func_dispatch(wk, func_idx, self, &res);
+		if (wk->vm.disable_fuzz_unsafe_functions && (native_funcs[func_idx].flags & func_impl_flag_sandbox_disable)) {
+			res = obj_disabler;
+			ok = true;
+		} else {
+			ok = wk->vm.behavior.native_func_dispatch(wk, func_idx, self, &res);
+		}
 
 		TracyCZoneEnd(tctx_func);
 	}
