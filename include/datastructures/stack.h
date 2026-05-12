@@ -14,11 +14,12 @@
 struct arena;
 
 struct stack {
+	struct arena *a;
 	char *mem;
 	uint32_t len, cap;
 };
 
-void stack_init(struct arena *a, struct stack *stack, uint32_t cap);
+void stack_init(struct stack *stack, struct arena *const a, uint32_t cap);
 
 void stack_print(struct stack *_stack);
 void stack_push_sized(struct stack *stack, const void *mem, uint32_t size, const char *name);

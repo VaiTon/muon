@@ -97,7 +97,7 @@ workspace_init_bare(struct workspace *wk, struct arena *a, struct arena *a_scrat
 {
 	workspace_init_arena(wk, a, a_scratch);
 	vm_init(wk);
-	stack_init(wk->a, &wk->stack, 4096);
+	stack_init(&wk->stack, wk->a, 4096);
 	wk->init_flags |= workspace_init_flag_bare;
 
 	{
