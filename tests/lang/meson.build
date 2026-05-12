@@ -6,6 +6,7 @@ tests = [
     ['badnum.meson', {'should_fail': true}],
     ['configuration_data.meson'],
     ['dict.meson'],
+    ['deep_nesting.meson'],
     ['environment.meson', {'env': 'inherited=secret'}],
     ['fstring.meson'],
     ['func.meson'],
