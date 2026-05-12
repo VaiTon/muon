@@ -1173,7 +1173,7 @@ parse_prec(struct parser *p, enum parse_precedence prec, bool assignment_allowed
 	struct node *l = prefix_fn(p, assignment_allowed);
 	assert(l && "Prefix parse function returned null");
 
-	while (prec <= p->parse_rules[p->current.type].precedence) {
+	while (p->parse_rules[p->current.type].infix && prec <= p->parse_rules[p->current.type].precedence) {
 		p->behavior.advance(p);
 		l = p->parse_rules[p->previous.type].infix(p, l, assignment_allowed);
 	}
