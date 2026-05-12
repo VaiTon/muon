@@ -14,6 +14,7 @@
 struct arena;
 
 struct stack {
+	struct arena *a;
 	char *mem;
 	uint32_t len, cap;
 };

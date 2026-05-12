@@ -5,6 +5,7 @@
 
 #include "compat.h"
 
+#include <stdint.h>
 #include <string.h>
 
 #include "arena.h"
@@ -30,15 +31,29 @@ void
 stack_init(struct arena *a, struct stack *stack, uint32_t cap)
 {
 	*stack = (struct stack){
+		.a = a,
 		.mem = ar_alloc(a, cap, 1, 1),
 		.cap = cap,
 	};
 }
 
 static void
+stack_ensure_capacity(struct stack *stack, uint32_t additional_size)
+{
+	if (stack->len + additional_size <= stack->cap)
+		return;
+	uint32_t new_cap = stack->cap * 2;
+	while (stack->len + additional_size >= new_cap) {
+		new_cap *= 2;
+	}
+	stack->mem = ar_realloc(stack->a, stack->mem, stack->cap, new_cap, 1);
+	stack->cap = new_cap;
+}
+
+static void
 stack_push_raw(struct stack *stack, const void *mem, uint32_t size)
 {
-	assert(stack->len + size < stack->cap);
+	stack_ensure_capacity(stack, size);
 	memcpy(stack->mem + stack->len, mem, size);
 	stack->len += size;
 }
