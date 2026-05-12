@@ -1149,7 +1149,7 @@ parse_prec(struct parser *p, enum parse_precedence prec, bool assignment_allowed
 	struct node *l = prefix_fn(p, assignment_allowed);
 	assert(l && "Prefix parse function returned null");
 
-	while (prec <= p->parse_rules[p->current.type].precedence) {
+	while (p->parse_rules[p->current.type].infix && prec <= p->parse_rules[p->current.type].precedence) {
 		p->behavior.advance(p);
 		l = p->parse_rules[p->previous.type].infix(p, l, assignment_allowed);
 	}
@@ -1374,7 +1374,7 @@ static const struct parse_rule parse_rules_base[token_type_count] = {
 	['.']                    = { 0,              parse_member,  parse_precedence_call       },
 	['?']                    = { 0,              parse_ternary, parse_precedence_assignment },
 	[token_type_not]         = { parse_unary,    0,             0                           },
-	[token_type_func]        = { parse_func,     0,             parse_precedence_assignment },
+	[token_type_func]        = { parse_func,     0,             0                           },
 };
 
 static const struct parse_behavior parse_behavior_base = {
