@@ -7,14 +7,16 @@ if not (cc.cmd_array()[0].startswith('afl-clang') and afl_fuzz.found())
     subdir_done()
 endif
 
+fuzz_c_args = muon_c_args + cc.get_supported_arguments('-Wno-gnu-statement-expression-from-macro-expansion')
+
 fuzz_harness = executable(
     'fuzz-harness',
     'harness.c',
     include_directories: include_dir,
     dependencies: deps,
     link_with: muon_lib,
-    c_args: muon_c_args,
-    cpp_args: muon_c_args,
+    c_args: fuzz_c_args,
+    cpp_args: fuzz_c_args,
 )
 
 run_target(
