@@ -158,22 +158,18 @@ static uint32_t
 vm_lookup_source_location_mapping_idx(struct vm *vm, uint32_t ip)
 {
 	struct source_location_mapping *locations = (struct source_location_mapping *)vm->locations.e;
+	uint32_t low = 0, high = vm->locations.len;
 
-	uint32_t i;
-	for (i = 0; i < vm->locations.len; ++i) {
-		if (locations[i].ip > ip) {
-			if (i) {
-				--i;
-			}
-			break;
+	while (low < high) {
+		uint32_t mid = low + (high - low) / 2;
+		if (locations[mid].ip <= ip) {
+			low = mid + 1;
+		} else {
+			high = mid;
 		}
 	}
 
-	if (i == vm->locations.len) {
-		--i;
-	}
-
-	return i;
+	return low > 0 ? low - 1 : 0;
 }
 
 void
