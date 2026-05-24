@@ -6,6 +6,7 @@
 #include "compat.h"
 
 #include <stdarg.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -429,13 +430,17 @@ str_eql(const struct str *ss1, const struct str *ss2)
 int32_t
 str_cmp(const struct str *ss1, const struct str *ss2)
 {
-	uint32_t i;
-	for (i = 0; i < ss1->len && i < ss2->len && ss1->s[i] == ss2->s[i]; ++i)
-	{
-	}
+	if (ss1 == ss2)
+		return 0;
 
-	char l = i < ss1->len ? ss1->s[i] : 0, r = i < ss2->len ? ss2->s[i] : 0;
-	return l - r;
+	uint32_t a_len = ss1->len, b_len = ss2->len;
+	uint32_t min_len = a_len < b_len ? a_len : b_len;
+
+	int cmp = memcmp(ss1->s, ss2->s, min_len);
+	if (cmp != 0)
+		return cmp;
+
+	return (a_len > b_len) - (a_len < b_len);
 }
 
 static bool
@@ -1429,41 +1434,35 @@ str_levenshtein_distance(const struct str *a, const struct str *b)
 	v0 = _v0;
 	v1 = _v1;
 
-	int32_t m = a->len + 1, n = b->len + 1;
-	if (m > LEVENSHTEIN_MAX_COMPARE_LEN) {
-		m = LEVENSHTEIN_MAX_COMPARE_LEN;
-	}
-	if (n > LEVENSHTEIN_MAX_COMPARE_LEN) {
-		n = LEVENSHTEIN_MAX_COMPARE_LEN;
-	}
+	int32_t m = a->len >= LEVENSHTEIN_MAX_COMPARE_LEN ? LEVENSHTEIN_MAX_COMPARE_LEN : (int32_t)a->len + 1;
+	int32_t n = b->len >= LEVENSHTEIN_MAX_COMPARE_LEN ? LEVENSHTEIN_MAX_COMPARE_LEN : (int32_t)b->len + 1;
 
 	for (int32_t i = 0; i < n; ++i) {
 		v0[i] = i;
 	}
 
+	uint8_t b_lower[LEVENSHTEIN_MAX_COMPARE_LEN];
+	for (int32_t j = 0; j < n - 1; j++) {
+		b_lower[j] = str_char_to_lower(b->s[j]);
+	}
+
 	for (int32_t i = 0; i < m - 1; ++i) {
 		v1[0] = i + 1;
+
+		uint8_t a_lower = str_char_to_lower(a->s[i]);
 
 		for (int32_t j = 0; j < n - 1; ++j) {
 			int32_t deletionCost = v0[j + 1] + 1;
 			int32_t insertionCost = v1[j] + 1;
-			int32_t substitutionCost;
-			if (str_char_to_lower(a->s[i]) == str_char_to_lower(b->s[j])) {
-				substitutionCost = v0[j];
-			} else {
-				substitutionCost = v0[j] + 1;
-			}
+
+			int32_t substitutionCost = v0[j] + (a_lower == b_lower[j] ? 0 : 1);
 
 			v1[j + 1] = min3(deletionCost, insertionCost, substitutionCost);
 		}
 
-		if (v0 == _v0) {
-			v0 = _v1;
-			v1 = _v0;
-		} else {
-			v0 = _v0;
-			v1 = _v1;
-		}
+		int32_t *tmp = v0;
+		v0 = v1;
+		v1 = tmp;
 	}
 
 	return v0[n - 1];

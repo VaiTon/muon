@@ -18,6 +18,7 @@
 #include "formats/tap.h"
 #include "functions/environment.h"
 #include "lang/serial.h"
+#include "lang/string.h"
 #include "log.h"
 #include "options.h"
 #include "platform/assert.h"
@@ -220,7 +221,7 @@ sort_jobs(const void *_a, const void *_b, void *_ctx)
 
 	if (res_a->busy && res_b->busy) {
 		if (-epsilon <= diff && diff <= epsilon) {
-			return strcmp(get_str(ctx->wk, res_a->test->name)->s, get_str(ctx->wk, res_b->test->name)->s);
+			return str_cmp(get_str(ctx->wk, res_a->test->name), get_str(ctx->wk, res_b->test->name));
 		} else if (diff > epsilon) {
 			return -1;
 		} else {

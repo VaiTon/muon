@@ -16,6 +16,7 @@
 #include "error.h"
 #include "formats/xml.h"
 #include "lang/object_iterators.h"
+#include "lang/string.h"
 #include "platform/assert.h"
 #include "platform/filesystem.h"
 #include "platform/path.h"
@@ -330,12 +331,12 @@ xc_project_target_sources(struct xc_ctx *ctx, struct project *proj, obj tgt, obj
 		path_copy(ctx->wk, &prev_dirname, dirname.buf);
 		path_dirname(ctx->wk, &dirname, rel.buf);
 
-		if (strcmp(dirname.buf, ".") == 0) {
+		if (str_eql(&TSTR_STR(&dirname), &STR("."))) {
 			dirname.buf[0] = 0;
 			dirname.len = 0;
 		}
 
-		if (strcmp(prev_dirname.buf, dirname.buf) != 0) {
+		if (!str_eql(&TSTR_STR(&prev_dirname), &TSTR_STR(&dirname))) {
 			uint32_t i;
 			uint32_t common_len = 0, len = 0;
 
