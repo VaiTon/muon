@@ -9,6 +9,7 @@ tests = [
     ['muon/python', {'python': true}],
     ['muon/script_module'],
     ['muon/wayland'],
+    ['muon/subproject_promotion'],
     ['muon/objc and cpp', {'objc': true, 'kwargs': {'timeout': 45}}],
     ['muon/vala', {'vala': true}],
     ['muon/disabler', {}],
