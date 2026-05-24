@@ -251,6 +251,8 @@ fs_read_entire_file(struct arena *a, const char *path, struct source *src)
 				src->len);
 			goto done;
 		}
+
+		buf[src->len] = 0;
 	} else {
 		uint32_t buf_size = BUF_SIZE_4k;
 		buf = ar_alloc(a, 1, buf_size + 1, 1);
@@ -260,12 +262,12 @@ fs_read_entire_file(struct arena *a, const char *path, struct source *src)
 
 			if (src->len >= buf_size) {
 				uint32_t new_buf_size = buf_size * 2;
-				buf = ar_realloc(a, buf, buf_size, new_buf_size, 1);
+				buf = ar_realloc(a, buf, buf_size + 1, new_buf_size + 1, 1);
 				buf_size = new_buf_size;
 			}
 		}
 
-		assert(src->len < buf_size && buf[src->len] == 0);
+		buf[src->len] = 0;
 
 		if (!feof(f)) {
 			LOG_E("failed to read entire file, only read %" PRId64 "bytes", src->len);
