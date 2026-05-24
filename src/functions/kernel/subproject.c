@@ -19,22 +19,20 @@
 
 static bool
 subproject_prepare(struct workspace *wk,
-	struct tstr *cwd_buf,
-	const char **cwd,
-	struct tstr *build_dir_buf,
-	const char **build_dir,
-	bool required,
-	bool *found)
+	struct tstr *const cwd,
+	struct tstr *const build_dir,
+	const bool required,
+	bool *const found)
 {
 	TSTR(wrap_path);
-	tstr_pushf(wk, &wrap_path, "%s.wrap", *cwd);
+	tstr_pushf(wk, &wrap_path, "%s.wrap", cwd->buf);
 
 	if (!wk->vm.in_analyzer && fs_file_exists(wrap_path.buf)) {
 		bool wrap_ok = false;
 
 		TSTR(base_path);
 
-		path_dirname(wk, &base_path, *cwd);
+		path_dirname(wk, &base_path, cwd->buf);
 
 		struct wrap_handle_ctx wrap_ctx
 			= { .opts = {
@@ -47,13 +45,12 @@ subproject_prepare(struct workspace *wk,
 		}
 
 		if (wrap_ctx.wrap.fields[wf_directory]) {
-			path_join(wk, cwd_buf, base_path.buf, wrap_ctx.wrap.fields[wf_directory]);
+			const char *dir = wrap_ctx.wrap.fields[wf_directory];
 
-			path_dirname(wk, &base_path, *build_dir);
-			path_join(wk, build_dir_buf, base_path.buf, wrap_ctx.wrap.fields[wf_directory]);
+			path_join(wk, cwd, base_path.buf, dir);
 
-			*cwd = cwd_buf->buf;
-			*build_dir = build_dir_buf->buf;
+			path_dirname(wk, &base_path, build_dir->buf);
+			path_join(wk, build_dir, base_path.buf, dir);
 		}
 
 		wrap_ok = true;
@@ -61,7 +58,7 @@ subproject_prepare(struct workspace *wk,
 done:
 		if (!wrap_ok) {
 			if (required) {
-				LOG_E("project %s wrap error", *cwd);
+				LOG_E("project %s wrap error", cwd->buf);
 				return false;
 			} else {
 				*found = false;
@@ -71,11 +68,11 @@ done:
 	}
 
 	TSTR(src);
-	path_join(wk, &src, *cwd, "meson.build");
+	path_join(wk, &src, cwd->buf, "meson.build");
 
 	if (!fs_file_exists(src.buf)) {
 		if (required) {
-			LOG_E("project %s does not contain a meson.build", *cwd);
+			LOG_E("project %s does not contain a meson.build", cwd->buf);
 			return false;
 		} else {
 			*found = false;
@@ -85,6 +82,29 @@ done:
 
 	*found = true;
 	return true;
+}
+
+// Try to load the subproject from the given project.
+// Returns false on error, true on success or not found (if not required).
+static bool
+subproject_try_proj(struct workspace *wk,
+	const struct project *const proj,
+	const char *const subproj_name,
+	struct tstr *const cwd,
+	struct tstr *const build_dir,
+	const bool required,
+	bool *const found)
+{
+	tstr_clear(cwd);
+	tstr_clear(build_dir);
+
+	path_join(wk, cwd, get_cstr(wk, proj->source_root), get_cstr(wk, proj->subprojects_dir));
+	path_push(wk, cwd, subproj_name);
+
+	path_join(wk, build_dir, get_cstr(wk, proj->build_root), get_cstr(wk, proj->subprojects_dir));
+	path_push(wk, build_dir, subproj_name);
+
+	return subproject_prepare(wk, cwd, build_dir, required, found);
 }
 
 bool
@@ -105,32 +125,36 @@ subproject(struct workspace *wk,
 		return true;
 	}
 
+	struct project *subproj = current_project(wk);
 	const char *subproj_name = get_cstr(wk, name);
+
+	struct project *root_proj = arr_get(&wk->projects, 0);
+
 	TSTR(cwd);
 	TSTR(build_dir);
-
-	path_join(wk,
-		&cwd,
-		get_cstr(wk, current_project(wk)->source_root),
-		get_cstr(wk, current_project(wk)->subprojects_dir));
-	path_push(wk, &cwd, subproj_name);
-
-	path_join(wk,
-		&build_dir,
-		get_cstr(wk, current_project(wk)->build_root),
-		get_cstr(wk, current_project(wk)->subprojects_dir));
-	path_push(wk, &build_dir, subproj_name);
 
 	uint32_t subproject_id = 0;
 	bool found;
 
-	const char *sp_cwd = cwd.buf, *sp_build_dir = build_dir.buf;
-	TSTR(sp_cwd_buf);
-	TSTR(sp_build_dir_buf);
+	bool try_fallback = subproj != root_proj;
 
-	if (!subproject_prepare(
-		    wk, &sp_cwd_buf, &sp_cwd, &sp_build_dir_buf, &sp_build_dir, req == requirement_required, &found)) {
+	// try the root project first
+	if (!subproject_try_proj(wk,
+		    root_proj,
+		    subproj_name,
+		    &cwd,
+		    &build_dir,
+		    req == requirement_required && !try_fallback,
+		    &found)) {
 		return false;
+	}
+
+	if (!found && try_fallback) {
+		// fallback to the current subproject
+		if (!subproject_try_proj(
+			    wk, subproj, subproj_name, &cwd, &build_dir, req == requirement_required, &found)) {
+			return false;
+		}
 	}
 
 	if (!found) {
@@ -143,7 +167,7 @@ subproject(struct workspace *wk,
 		}
 	}
 
-	if (!eval_project(wk, subproj_name, sp_cwd, sp_build_dir, &subproject_id)) {
+	if (!eval_project(wk, subproj_name, cwd.buf, build_dir.buf, &subproject_id)) {
 		goto not_found;
 	}
 
