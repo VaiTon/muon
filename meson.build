@@ -143,9 +143,6 @@ endforeach
 include_dir = [include_directories('include')]
 muon_export_dynamic = false
 
-subdir('tools')
-subdir('src')
-
 # muon compiler setup
 muon_c_args = [
     '-DMUON_PLATFORM_' + platform,
@@ -157,6 +154,11 @@ if get_option('static')
     muon_c_args += '-DMUON_STATIC'
     link_args += '-static'
 endif
+
+deps = []
+
+subdir('tools')
+subdir('src')
 
 # tracy
 tracy_dep = dependency('tracy', required: get_option('tracy'))
@@ -191,9 +193,10 @@ endif
 
 muon = executable(
     'muon',
-    src,
+    'src/main.c',
     dependencies: deps,
     include_directories: include_dir,
+    link_with: muon_lib,
     link_args: link_args,
     c_args: muon_c_args,
     cpp_args: muon_c_args,
