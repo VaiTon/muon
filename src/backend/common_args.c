@@ -375,8 +375,34 @@ ca_get_base_compiler_args(struct workspace *wk,
 void
 ca_setup_compiler_args_includes(struct workspace *wk, obj comp, obj include_dirs, obj args, bool relativize)
 {
+	obj normal = make_obj(wk, obj_array);
+	obj system = make_obj(wk, obj_array);
+	obj dirafter = make_obj(wk, obj_array);
 	obj v;
 	obj_array_for(wk, include_dirs, v) {
+		obj *dest = &normal;
+		if (get_obj_type(wk, v) == obj_include_directory) {
+			struct obj_include_directory *inc = get_obj_include_directory(wk, v);
+			if (inc->is_system) {
+				dest = &system;
+			} else if (inc->is_idirafter) {
+				dest = &dirafter;
+			}
+		}
+		obj_array_push(wk, *dest, v);
+	}
+
+	obj reversed_system = make_obj(wk, obj_array);
+	obj_array_for(wk, system, v) {
+		obj_array_prepend(wk, &reversed_system, v);
+	}
+
+	obj ordered = make_obj(wk, obj_array);
+	obj_array_extend(wk, ordered, normal);
+	obj_array_extend(wk, ordered, reversed_system);
+	obj_array_extend(wk, ordered, dirafter);
+
+	obj_array_for(wk, ordered, v) {
 		const char *dir;
 		enum {
 			inc_type_normal,
