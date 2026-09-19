@@ -1,5 +1,5 @@
 # SPDX-FileCopyrightText: Stone Tickle <lattis@mochiro.moe>
 # SPDX-License-Identifier: GPL-3.0-only
 
-obj = serial_load('-')
+obj = serial_load(argv[0])
 serial_dump('/dev/null', obj)
