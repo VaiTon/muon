@@ -516,12 +516,7 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 
 		{ /* compile args */
 			if (tgt->dep_internal.compile_args) {
-				obj tgt_args;
-				if (obj_dict_geti(wk, tgt->args, lang, &tgt_args)) {
-					obj_array_extend(wk, tgt_args, tgt->dep_internal.compile_args);
-				} else {
-					obj_dict_seti(wk, tgt->args, lang, tgt->dep_internal.compile_args);
-				}
+				obj_array_extend(wk, args_post, tgt->dep_internal.compile_args);
 			}
 		}
 
