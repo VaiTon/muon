@@ -5,3 +5,4 @@
 url = https://github.com/muon-build/meson-tests
 revision = 38483b8cf5eb4f6e9df7a78d786ec111e0d6eb5d
 depth = 1
+diff_files = meson-tests/systemd-include-order.patch

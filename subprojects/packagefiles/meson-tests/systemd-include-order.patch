@@ -1,0 +1,35 @@
+diff --git "a/common/293 systemd regression/meson.build" "b/common/293 systemd regression/meson.build"
+index f36461f..a40936b 100644
+--- "a/common/293 systemd regression/meson.build"
++++ "b/common/293 systemd regression/meson.build"
+@@ -1,7 +1,6 @@
+-# regression test - meson puts the directories in the reversed order for
+-# "is_system: true", which is bad but happens for historical reasons.
+-# different than meson:
+-# muon puts directories in the correct order so this test is kind of pointless
++# Regression test for Meson's historical reversal of system include
++# directories.  Projects such as systemd list uapi before override so that
++# override is searched first after the reversal.
+ 
+ # SPDX-License-Identifier: LGPL-2.1-or-later
+ 
+@@ -19,8 +18,8 @@ userspace = declare_dependency(compile_args: ['-include', 'config.h'])
+ system_includes = [
+     include_directories(
+-        'override',
+         'uapi',
++        'override',
+         is_system: true,
+     ),
+ ]
+ 
+@@ -38,8 +37,8 @@ static_library(
+ 
+ # second testcase, with separate include_directories
+ 
+ system_includes = [
+-    include_directories('override', is_system: true),
+     include_directories('uapi', is_system: true),
++    include_directories('override', is_system: true),
+ ]
+ 
