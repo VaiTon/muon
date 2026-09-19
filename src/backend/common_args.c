@@ -15,6 +15,8 @@
 #include "functions/build_target.h"
 #include "lang/object.h"
 #include "lang/object_iterators.h"
+#include "lang/string.h"
+#include "lang/types.h"
 #include "log.h"
 #include "machines.h"
 #include "options.h"
@@ -67,9 +69,9 @@ ca_get_buildtype(struct workspace *wk,
 	struct obj_option *buildtype_opt = get_obj_option(wk, buildtype_opt_id);
 	buildtype_val = buildtype_opt->val;
 
-	const char *str = get_cstr(wk, buildtype_val);
+	const struct str *str = get_str(wk, buildtype_val);
 
-	bool use_custom = (strcmp(str, "custom") == 0) || (buildtype_opt->source <= option_value_source_default);
+	bool use_custom = str_eql(str, &STR("custom")) || (buildtype_opt->source <= option_value_source_default);
 
 	if (use_custom) {
 		obj optimization_id, debug_id;
@@ -97,7 +99,7 @@ ca_get_buildtype(struct workspace *wk,
 		buildtype->debug = get_obj_bool(wk, debug_id);
 	} else {
 		for (i = 0; tbl[i].name; ++i) {
-			if (strcmp(str, tbl[i].name) == 0) {
+			if (str_eql(str, &STRL(tbl[i].name))) {
 				buildtype->opt = tbl[i].opt;
 				buildtype->debug = tbl[i].debug;
 				break;
@@ -105,7 +107,7 @@ ca_get_buildtype(struct workspace *wk,
 		}
 
 		if (!tbl[i].name) {
-			LOG_E("invalid build type %s", str);
+			LOG_E("invalid build type %*s", str->len, str->s);
 			UNREACHABLE;
 		}
 	}

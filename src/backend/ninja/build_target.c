@@ -13,6 +13,7 @@
 #include "error.h"
 #include "functions/build_target.h"
 #include "lang/object_iterators.h"
+#include "lang/string.h"
 #include "lang/workspace.h"
 #include "log.h"
 #include "platform/assert.h"
@@ -45,14 +46,14 @@ write_vala_two_stage_compilation(struct workspace *wk,
 	struct tstr *dest_path,
 	struct tstr *src_path)
 {
-	TSTR(c_path);
 	TSTR(vala_basename);
 	path_basename(wk, &vala_basename, src);
 
 	TSTR(output_dir);
 	path_dirname(wk, &output_dir, dest_path->buf);
 
-	if (vala_basename.len > 5 && strcmp(&vala_basename.buf[vala_basename.len - 5], ".vala") == 0) {
+	TSTR(c_path);
+	if (str_endswith(&TSTR_STR(&vala_basename), &STR(".vala"))) {
 		// if the file ends with .vala, replace it with .c
 		TSTR(c_basename);
 		tstr_pushn(wk, &c_basename, vala_basename.buf, vala_basename.len - 5);
