@@ -103,7 +103,6 @@ src = files(
     'log.c',
     'machine_file.c',
     'machines.c',
-    'main.c',
     'memmem.c',
     'meson_opts.c',
     'options.c',
@@ -114,8 +113,6 @@ src = files(
     'vsenv.c',
     'wrap.c',
 )
-
-deps = []
 
 subdir('platform')
 src += platform_sources
@@ -141,3 +138,12 @@ if get_option('ui').enabled()
 else
     src += files('ui_null.c')
 endif
+
+muon_lib = static_library(
+    'muon_core',
+    src,
+    include_directories: include_dir,
+    dependencies: deps,
+    c_args: muon_c_args,
+    cpp_args: muon_c_args,
+)
