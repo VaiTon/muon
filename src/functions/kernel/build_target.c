@@ -234,6 +234,7 @@ build_tgt_push_source_files_iter(struct workspace *wk, void *_ctx, obj val)
 {
 	struct process_build_tgt_sources_ctx *ctx = _ctx;
 	struct obj_build_target *tgt = get_obj_build_target(wk, ctx->tgt_id);
+	obj_array_push(wk, tgt->all_sources, val);
 
 	if (file_is_linkable(wk, val)) {
 		obj_array_push(wk, tgt->dep_internal.link_with, val);
@@ -614,6 +615,7 @@ create_target(struct workspace *wk,
 	tgt->callstack = vm_callstack(wk);
 	tgt->args = make_obj(wk, obj_dict);
 	tgt->src = make_obj(wk, obj_array);
+	tgt->all_sources = make_obj(wk, obj_array);
 	tgt->required_compilers = make_obj(wk, obj_dict);
 	tgt->extra_files = make_obj(wk, obj_array);
 
