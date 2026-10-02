@@ -210,9 +210,16 @@ build_target_extract_object(struct workspace *wk, struct build_target_extract_ob
 	default: UNREACHABLE_RETURN;
 	}
 
+	if (ctx->verify_exists && !obj_array_in(wk, ctx->tgt->all_sources, file)) {
+		vm_error_at(wk, 0, "%o is not in target sources (%o)", file, ctx->tgt->all_sources);
+		return false;
+	}
+
 	enum compiler_language l;
 	if (!filename_to_compiler_language(get_file_path(wk, file), &l)) {
-		return false;
+		// Generated include files may be listed as target sources so the
+		// generator runs before compilation, but they do not produce objects.
+		return true;
 	}
 
 	switch (l) {
@@ -236,11 +243,6 @@ build_target_extract_object(struct workspace *wk, struct build_target_extract_ob
 	case compiler_language_fortran: break;
 	case compiler_language_null:
 	case compiler_language_count: UNREACHABLE;
-	}
-
-	if (ctx->verify_exists && !obj_array_in(wk, ctx->tgt->src, file)) {
-		vm_error_at(wk, 0, "%o is not in target sources (%o)", file, ctx->tgt->src);
-		return false;
 	}
 
 	TSTR(dest_path);

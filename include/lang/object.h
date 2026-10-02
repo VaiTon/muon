@@ -286,6 +286,7 @@ struct obj_build_target {
 	obj soname; // obj_string
 	obj implib; // obj_string
 	obj src; // obj_array
+	obj all_sources; // obj_array
 	obj objects; // obj_array
 	obj args; // obj_dict
 	obj processed_args_pch; // obj_dict
