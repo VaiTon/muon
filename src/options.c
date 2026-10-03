@@ -1216,6 +1216,8 @@ parse_and_set_option(struct workspace *wk, const struct parse_and_set_option_par
 		newopt = make_obj(wk, obj_option);
 		struct obj_option *o = get_obj_option(wk, newopt);
 		*o = *get_obj_option(wk, opt);
+		/* A target override applies after project-wide and command-line values. */
+		o->source = option_value_source_unset;
 		opt = newopt;
 	}
 

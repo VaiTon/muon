@@ -99,7 +99,7 @@ option(
     yield: true,
     type: 'combo',
     value: 'off',
-    choices: ['off'],
+    choices: ['off', 'on', 'subprojects'],
     description: 'Unity build',
 )
 option(
@@ -109,7 +109,7 @@ option(
     value: 4,
     min: 2,
     description: 'Unity block size',
-) # TODO
+)
 
 option(
     'c_winlibs',
