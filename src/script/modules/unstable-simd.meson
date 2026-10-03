@@ -1,0 +1,84 @@
+# SPDX-FileCopyrightText: VaiTon <eyadlorenzo@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-only
+
+instruction_set_args = {
+    'mmx': ['-mmmx'],
+    'sse': ['-msse'],
+    'sse2': ['-msse2'],
+    'sse3': ['-msse3'],
+    'ssse3': ['-mssse3'],
+    'sse41': ['-msse4.1'],
+    'sse42': ['-msse4.2'],
+    'avx': ['-mavx'],
+    'avx2': ['-mavx2'],
+    'neon': ['-mfpu=neon'],
+}
+
+func check(
+    name str,
+    compiler compiler:,
+    c_args listify[str]: [],
+    include_directories listify[inc|str]: [],
+    implicit_include_directories bool: true,
+    mmx listify[any]: [],
+    sse listify[any]: [],
+    sse2 listify[any]: [],
+    sse3 listify[any]: [],
+    ssse3 listify[any]: [],
+    sse41 listify[any]: [],
+    sse42 listify[any]: [],
+    avx listify[any]: [],
+    avx2 listify[any]: [],
+    neon listify[any]: [],
+) -> list[any]
+    libraries = []
+    conf = configuration_data()
+    sources_by_set = {
+        'mmx': mmx,
+        'sse': sse,
+        'sse2': sse2,
+        'sse3': sse3,
+        'ssse3': ssse3,
+        'sse41': sse41,
+        'sse42': sse42,
+        'avx': avx,
+        'avx2': avx2,
+        'neon': neon,
+    }
+
+    foreach key : [
+        'mmx',
+        'sse',
+        'sse2',
+        'sse3',
+        'ssse3',
+        'sse41',
+        'sse42',
+        'avx',
+        'avx2',
+        'neon',
+    ]
+        sources = sources_by_set[key]
+        if sources.length() == 0
+            continue
+        endif
+
+        args = instruction_set_args[key]
+        if compiler.get_supported_arguments(args).length() != args.length()
+            continue
+        endif
+
+        libraries += static_library(
+            name + '_' + key,
+            sources,
+            c_args: c_args + args,
+            include_directories: include_directories,
+            implicit_include_directories: implicit_include_directories,
+        )
+        conf.set('HAVE_' + key.to_upper(), 1)
+    endforeach
+
+    return [libraries, conf]
+endfunc
+
+return {'check': check}

@@ -21,6 +21,7 @@ foreach s : [
     'modules/gnome.meson',
     'modules/i18n.meson',
     'modules/snippets.meson',
+    'modules/unstable-simd.meson',
     'modules/wayland.meson',
     'modules/windows.meson',
     'options/global.meson',
