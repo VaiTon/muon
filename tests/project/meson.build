@@ -25,7 +25,10 @@ tests = [
             },
         },
     ],
-    ['muon/unity-extract-objects', {'should_fail': true, 'options': {'unity': 'on'}}],
+    [
+        'muon/unity-extract-objects',
+        {'should_fail': true, 'options': {'unity': 'on'}},
+    ],
 
     # project tests imported from meson unit tests
     # TODO: move this to meson-tests
