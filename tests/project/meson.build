@@ -15,6 +15,7 @@ tests = [
     ['muon/disabler', {}],
     ['muon/configure_file_cmake', {}],
     ['muon/configure_file_missing', {}],
+    ['muon/gnome_gtkdoc_html_dir'],
     ['muon/compiler_dependencies'],
     [
         'muon/unity',
