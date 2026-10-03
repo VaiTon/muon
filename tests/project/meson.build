@@ -15,6 +15,7 @@ tests = [
     ['muon/disabler', {}],
     ['muon/configure_file_cmake', {}],
     ['muon/compiler_attributes'],
+    ['muon/compiler_dependencies'],
     [
         'muon/unity',
         {
