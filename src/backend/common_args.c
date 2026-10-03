@@ -288,7 +288,11 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_lto", &opt);
 	if (get_obj_bool(wk, opt)) {
-		obj_array_extend(wk, args, toolchain_compiler_enable_lto(wk, comp));
+		obj threads_id;
+		ca_get_option_value_for_tgt(wk, proj, tgt, "b_lto_threads", &threads_id);
+		const char *threads = get_cstr(
+			wk, make_strf(wk, "%d", (int)get_obj_number(wk, threads_id)));
+		obj_array_extend(wk, args, toolchain_compiler_lto_compile(wk, comp, threads));
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_coverage", &opt);
@@ -647,7 +651,11 @@ ca_setup_optional_b_args_linker(struct workspace *wk,
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_lto", &opt);
 	if (get_obj_bool(wk, opt)) {
-		obj_array_extend(wk, args, toolchain_linker_enable_lto(wk, comp));
+		obj threads_id;
+		ca_get_option_value_for_tgt(wk, proj, tgt, "b_lto_threads", &threads_id);
+		const char *threads = get_cstr(
+			wk, make_strf(wk, "%d", (int)get_obj_number(wk, threads_id)));
+		obj_array_extend(wk, args, toolchain_compiler_lto_link(wk, comp, threads));
 	}
 
 	ca_get_option_value_for_tgt(wk, proj, tgt, "b_coverage", &opt);

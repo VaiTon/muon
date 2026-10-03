@@ -1188,7 +1188,8 @@ toolchain_handler_info_init(struct workspace *wk)
 		= "`true` if the linker should only be invoked through the compiler driver, or `false` if the linker should be invoked directly.");
 	doc(dumpmachine, compiler, .desc = "Argument to output the compiler's target triple.");
 	doc(emit_pch, compiler, .desc = "");
-	doc(enable_lto, compiler, .desc = "`-flto`");
+	doc(lto_compile, compiler, .desc = "Link-time optimization compile arguments.");
+	doc(lto_link, compiler, .desc = "Link-time optimization link arguments.");
 	doc(force_language, compiler, .desc = "`-x`");
 	doc(include, compiler, .desc = "`-I`");
 	doc(include_dirafter, compiler, .desc = "`-idirafter`");
@@ -1230,7 +1231,6 @@ toolchain_handler_info_init(struct workspace *wk)
 	doc(coverage, linker, .desc = "`--coverage`");
 	doc(debug, linker, .desc = "`/DEBUG`");
 	doc(def, linker, .desc = "`/DEF`");
-	doc(enable_lto, linker, .desc = "`-flto`");
 	doc(end_group, linker, .desc = "`--end-group`");
 	doc(export_dynamic, linker, .desc = "`-export-dynamic`");
 	doc(fatal_warnings, linker, .desc = "`--fatal-warnings`");
@@ -1710,4 +1710,3 @@ compilers_init(struct workspace *wk)
 
 	toolchain_handler_info_init(wk);
 }
-
