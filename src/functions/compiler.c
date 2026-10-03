@@ -214,7 +214,7 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 				.dep_internal = dep,
 			};
 			ca_prepare_target_linker_args(wk, comp, current_project(wk), &tgt, false);
-			obj_array_extend_nodup(wk, compiler_args, dep.link_args);
+			obj_array_extend_nodup(wk, compiler_args, tgt.dep_internal.link_args);
 		}
 	}
 
