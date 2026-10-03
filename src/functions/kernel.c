@@ -1136,6 +1136,7 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 		kw_capture,
 		kw_console,
 		kw_feed,
+		kw_workdir,
 	};
 	struct args_kw akw[] = {
 		[kw_check] = { "check", obj_bool },
@@ -1146,6 +1147,7 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 			tc_coercible_files,
 			.desc = "Specify a file to be used for stdin",
 			.extension = true },
+		[kw_workdir] = { "workdir", obj_string },
 		0,
 	};
 	if (!pop_args(wk, an, akw)) {
@@ -1223,7 +1225,8 @@ FUNC_IMPL(kernel, run_command, tc_run_result, func_impl_flag_impure | func_impl_
 
 	bool ret = false;
 	struct run_cmd_ctx cmd_ctx = {
-		.chdir = current_project(wk) ? get_cstr(wk, current_project(wk)->cwd) : 0,
+		.chdir = akw[kw_workdir].set ? get_cstr(wk, akw[kw_workdir].val)
+						     : (current_project(wk) ? get_cstr(wk, current_project(wk)->cwd) : 0),
 		.stdin_path = feed ? get_file_path(wk, feed) : 0,
 	};
 

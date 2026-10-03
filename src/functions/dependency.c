@@ -184,6 +184,23 @@ FUNC_IMPL(dependency, get_variable, tc_string, func_impl_flag_impure)
 				return true;
 			}
 		}
+		if (akw[kw_internal].set) {
+			const char *name = get_cstr(wk, akw[kw_internal].val);
+			if (!strcmp(name, "compile_args")) {
+				*res = dep->dep.compile_args;
+			} else if (!strcmp(name, "include_directories")) {
+				*res = dep->dep.include_directories;
+			} else if (!strcmp(name, "link_args")) {
+				*res = dep->dep.link_args;
+			} else if (!strcmp(name, "link_with")) {
+				*res = dep->dep.link_with;
+			} else if (!strcmp(name, "link_targets")) {
+				*res = dep->dep.raw.link_with;
+			}
+			if (*res) {
+				return true;
+			}
+		}
 		break;
 	}
 	case dependency_public_type_system: {

@@ -230,6 +230,20 @@ FUNC_IMPL(environment, unset, 0, func_impl_flag_impure)
 	return true;
 }
 
+FUNC_IMPL(environment, get, tc_string)
+{
+	struct args_norm an[] = {
+		{ obj_string },
+		ARG_TYPE_NULL,
+	};
+	if (!pop_args(wk, an, 0)) {
+		return false;
+	}
+	const char *value = os_get_env(get_cstr(wk, an[0].val));
+	*res = make_str(wk, value ? value : "");
+	return true;
+}
+
 FUNC_REGISTER(environment)
 {
 	if (vm_enum(wk, enum environment_set_mode)) {
@@ -242,4 +256,5 @@ FUNC_REGISTER(environment)
 	FUNC_IMPL_REGISTER(environment, append);
 	FUNC_IMPL_REGISTER(environment, prepend);
 	FUNC_IMPL_REGISTER(environment, unset);
+	FUNC_IMPL_REGISTER(environment, get);
 }

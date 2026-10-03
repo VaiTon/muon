@@ -10,6 +10,7 @@ foreach s : [
     'commands/copyfile.meson',
     'commands/coverage.meson',
     'commands/delete_suffix.meson',
+    'commands/gtkdoc.meson',
     'commands/i18n/gettext.meson',
     'commands/i18n/itstool.meson',
     'commands/i18n/msgfmthelper.meson',

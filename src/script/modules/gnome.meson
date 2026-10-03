@@ -432,8 +432,142 @@ func compile_schemas(
     )
 endfunc
 
-# TODO: implement yelp
-# TODO: implement gtkdoc
+func gtkdoc(
+    modulename str,
+    c_args listify[str]: [],
+    content_files listify[custom_tgt|file|generated_list|str]: [],
+    dependencies listify[dep]: [],
+    expand_content_files listify[file|str]: [],
+    fixxref_args listify[str]: [],
+    gobject_typesfile file|str:,
+    html_args listify[str]: [],
+    html_assets listify[file|str]: [],
+    ignore_headers listify[str]: [],
+    include_directories listify[inc|str]: [],
+    install bool: true,
+    install_dir str:,
+    main_sgml str:,
+    main_xml str:,
+    mkdb_args listify[str]: [],
+    mode str: 'auto',
+    module_version str: '',
+    namespace str: '',
+    scan_args listify[str]: [],
+    scanobjs_args listify[str]: [],
+    src_dir listify[inc|str]:,
+    run listify[str]: [],
+) -> custom_tgt
+    if not is_null(main_sgml) and not is_null(main_xml)
+        error('main_xml and main_sgml cannot both be set')
+    endif
+
+    main_file = is_null(main_xml) ? main_sgml : main_xml
+    if is_null(main_file)
+        main_file = ''
+    endif
+
+    doc_source = meson.current_source_dir()
+    doc_build = meson.current_build_dir()
+    source_root = meson.project_source_root()
+    build_root = meson.project_build_root()
+    headers = []
+    foreach dir : src_dir
+        headers += typeof(dir) == 'inc' ? dir.full_path() : dir
+    endforeach
+    foreach dir : include_directories
+        headers += typeof(dir) == 'inc' ? dir.full_path() : dir
+    endforeach
+
+    assets = []
+    foreach asset : html_assets
+        assets += typeof(asset) == 'file' ? asset.full_path() : asset
+    endforeach
+    content = []
+    depends = []
+    foreach file : content_files
+        if typeof(file) == 'custom_tgt'
+            content += file.full_path()
+            depends += file
+        elif typeof(file) == 'file'
+            content += file.full_path()
+        else
+            content += file
+        endif
+    endforeach
+
+    cflags = c_args
+    foreach dir : include_directories
+        cflags += '-I' + (typeof(dir) == 'inc' ? dir.full_path() : dir)
+    endforeach
+    ldflags = []
+    foreach dep : dependencies
+        partial = dep.partial_dependency(
+            compile_args: true,
+            includes: true,
+            link_args: true,
+            links: true,
+        )
+        cflags += partial.get_variable('compile_args')
+        foreach dir : partial.get_variable('include_directories')
+            cflags += '-I' + dir.full_path()
+        endforeach
+        ldflags += partial.get_variable('link_args')
+        foreach lib : partial.get_variable('link_with')
+            if typeof(lib) == 'str'
+                ldflags += lib
+            else
+                actual_lib = typeof(lib) == 'both_libs' ? lib.get_shared_lib() : lib
+                ldflags += actual_lib.full_path()
+                depends += actual_lib
+            endif
+        endforeach
+        foreach target_dep : partial.get_variable('link_targets')
+            if typeof(target_dep) in ['build_tgt', 'custom_tgt', 'both_libs', 'file']
+                depends += target_dep
+            endif
+        endforeach
+    endforeach
+
+    cc = meson.get_compiler('c')
+    scan = find_program('gtkdoc-scan')
+    scangobj = find_program('gtkdoc-scangobj')
+    mkdb = find_program('gtkdoc-mkdb')
+    mkhtml = find_program('gtkdoc-mkhtml')
+    fixxref = find_program('gtkdoc-fixxref')
+
+    command = [
+        meson.argv0(), 'internal', 'eval', '-e', 'commands/gtkdoc.meson',
+        'build', source_root, build_root, doc_source, doc_build,
+        modulename, main_file, namespace,
+        is_null(gobject_typesfile) ? '' : gobject_typesfile,
+        '^'.join(headers), '^'.join(assets), '^'.join(content),
+        ' '.join(ignore_headers), scan.full_path(), scangobj.full_path(),
+        mkdb.full_path(), mkhtml.full_path(), fixxref.full_path(),
+        ' '.join(cflags), ' '.join(ldflags), ' '.join(cc.cmd_array()),
+        ' '.join(cc.cmd_array()), '^'.join(run), mode,
+        '^'.join(expand_content_files), '^'.join(scanobjs_args),
+        '^'.join(fixxref_args), '^'.join(scan_args), '^'.join(mkdb_args),
+        '^'.join(html_args),
+    ]
+    target = custom_target(
+        modulename + '-doc',
+        output: modulename + '-decl.txt',
+        build_always_stale: true,
+        command: command,
+        depends: depends,
+    )
+
+    if install
+        install_name = modulename + (module_version == '' ? '' : '-' + module_version)
+        html_dir = is_null(install_dir) ? get_option('datadir') / 'gtk-doc/html' / install_name : install_dir
+        meson.add_install_script(
+            meson.argv0(), 'internal', 'eval', '-e', 'commands/gtkdoc.meson',
+            'install', doc_build / 'html', html_dir, get_option('prefix'),
+        )
+    endif
+
+    return target
+endfunc
 
 func gtkdoc_html_dir(namespace str) -> str
     return 'share/gtk-doc/html' / namespace
@@ -809,6 +943,7 @@ endfunc
 
 return {
     'post_install': post_install,
+    'gtkdoc': gtkdoc,
     'gtkdoc_html_dir': gtkdoc_html_dir,
     'compile_resources': compile_resources,
     'generate_gir': generate_gir,
