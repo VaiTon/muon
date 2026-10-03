@@ -15,7 +15,6 @@ tests = [
     ['muon/disabler', {}],
     ['muon/configure_file_cmake', {}],
     ['muon/configure_file_missing', {}],
-    ['muon/gnome_generate_gir_custom_include', {}],
     ['muon/compiler_dependencies'],
     [
         'muon/unity',
@@ -37,6 +36,10 @@ tests = [
     # unit
     ['unit/65 alias target', {'python': true}],
 ]
+
+if find_program('g-ir-scanner', required: false).found() and find_program('g-ir-compiler', required: false).found()
+    tests += [['muon/gnome_generate_gir_custom_include']]
+endif
 
 if dep_dict['samurai']
     ninja = 'USE_MUON'
