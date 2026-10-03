@@ -1740,4 +1740,3 @@ compilers_init(struct workspace *wk)
 
 	toolchain_handler_info_init(wk);
 }
-

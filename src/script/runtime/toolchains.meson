@@ -572,6 +572,8 @@ toolchain.register_compiler(
         'pic': func(c compiler) -> list[str]
             return c.machine().system() == 'windows' ? [] : ['-fPIC']
         endfunc,
+        'lto_compile': ['-flto'],
+        'lto_link': ['-flto'],
         'force_language': func(_c compiler, s str) -> list[str]
             return ['-x', s]
         endfunc,
