@@ -196,7 +196,7 @@ func generate_gir(
     header listify[str]: [],
     identifier_prefix listify[str]: [],
     include_directories listify[inc]: [],
-    includes listify[str]: [],
+    includes listify[custom_tgt|str]: [],
     install_gir bool:,
     install_typelib bool:,
     install_dir_gir bool|str:,
@@ -292,8 +292,16 @@ func generate_gir(
     endforeach
 
     # Add includes
+    gir_include_targets = []
+    gir_include_dirs = []
     foreach inc : includes
-        scan_command += ['--include=' + inc]
+        if typeof(inc) == 'str'
+            scan_command += ['--include=' + inc]
+        else
+            scan_command += ['--include-uninstalled=' + inc.full_path()]
+            gir_include_targets += inc
+            gir_include_dirs += fs.parent(inc.full_path())
+        endif
     endforeach
 
     # Add include directories
@@ -363,7 +371,7 @@ func generate_gir(
     gir_target = custom_target(
         gir_file,
         build_by_default: build_by_default,
-        depends: gir_targets,
+        depends: gir_targets + gir_include_targets,
         input: source_files,
         output: gir_file,
         install: install_gir,
@@ -373,6 +381,15 @@ func generate_gir(
     )
 
     # Generate typelib file
+    typelib_command = [
+        compiler_prog,
+        '@INPUT@',
+        '--output', '@OUTPUT@',
+    ]
+    foreach inc_dir : gir_include_dirs
+        typelib_command += ['--includedir=' + inc_dir]
+    endforeach
+
     typelib_target = custom_target(
         typelib_file,
         build_by_default: build_by_default,
@@ -381,11 +398,8 @@ func generate_gir(
         install: install_typelib,
         install_dir: install_dir_typelib,
         install_tag: 'runtime',
-        command: [
-            compiler_prog,
-            '@INPUT@',
-            '--output', '@OUTPUT@',
-        ],
+        depends: gir_include_targets,
+        command: typelib_command,
     )
 
     return [gir_target, typelib_target]
