@@ -151,7 +151,7 @@ ca_get_warning_args(struct workspace *wk,
 
 	obj_array_extend(wk, args_id, toolchain_compiler_warning_lvl(wk, comp, vm_enum_to_obj(wk, enum compiler_warning_lvl, lvl)));
 
-	if (tgt->pch && lvl >= 1) {
+	if (tgt && tgt->pch && lvl >= 1) {
 		obj_array_extend(wk, args_id, toolchain_compiler_winvalid_pch(wk, comp));
 	}
 }
@@ -305,7 +305,8 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 	if (b_largefile != feature_opt_disabled) {
 		bool enable = true;
 		if (b_largefile == feature_opt_auto) {
-			const struct machine_definition *machine = machine_definitions[tgt->machine];
+			enum machine_kind machine_kind = get_obj_compiler(wk, comp)->machine;
+			const struct machine_definition *machine = machine_definitions[machine_kind];
 
 			// Enable transparent large-file-support for 32-bit UNIX systems.
 			// This matches Meson's behavior for compatibility.
@@ -331,7 +332,7 @@ ca_setup_optional_b_args_compiler(struct workspace *wk,
 	}
 }
 
-static obj
+obj
 ca_get_base_compiler_args(struct workspace *wk,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
@@ -340,6 +341,7 @@ ca_get_base_compiler_args(struct workspace *wk,
 {
 	// struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 	struct ca_buildtype buildtype;
+	enum machine_kind machine = tgt ? tgt->machine : get_obj_compiler(wk, comp)->machine;
 
 	ca_get_buildtype(wk, proj, tgt, &buildtype);
 
@@ -361,14 +363,14 @@ ca_get_base_compiler_args(struct workspace *wk,
 
 	{ /* global args */
 		obj global_args;
-		if (obj_dict_geti(wk, wk->global_args[tgt->machine], lang, &global_args)) {
+		if (obj_dict_geti(wk, wk->global_args[machine], lang, &global_args)) {
 			obj_array_extend(wk, args, global_args);
 		}
 	}
 
 	{ /* project args */
 		obj proj_args;
-		if (obj_dict_geti(wk, proj->args[tgt->machine], lang, &proj_args)) {
+		if (obj_dict_geti(wk, proj->args[machine], lang, &proj_args)) {
 			obj_array_extend(wk, args, proj_args);
 		}
 	}
