@@ -17,6 +17,7 @@
 #include "lang/object_iterators.h"
 #include "lang/typecheck.h"
 #include "log.h"
+#include "options.h"
 #include "platform/assert.h"
 #include "platform/path.h"
 
@@ -265,11 +266,22 @@ FUNC_IMPL(build_target, extract_objects, tc_array, func_impl_flag_impure)
 		return false;
 	}
 
+	struct obj_build_target *tgt = get_obj_build_target(wk, self);
+	obj unity_opt;
+	get_option_value_overridable(wk, current_project(wk), tgt->override_options, "unity", &unity_opt);
+	const char *unity_mode = get_cstr(wk, unity_opt);
+	if (strcmp(unity_mode, "on") == 0
+		|| (strcmp(unity_mode, "subprojects") == 0 && current_project(wk)->subproject_name)) {
+		vm_error(wk,
+			"single object files cannot be extracted in unity builds; use extract_all_objects() to extract all object files for each compiler");
+		return false;
+	}
+
 	*res = make_obj(wk, obj_array);
 
 	struct build_target_extract_objects_ctx ctx = {
 		.res = res,
-		.tgt = get_obj_build_target(wk, self),
+		.tgt = tgt,
 		.tgt_id = self,
 		.verify_exists = true,
 	};
