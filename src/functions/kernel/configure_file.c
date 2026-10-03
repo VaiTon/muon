@@ -236,6 +236,20 @@ substitute_config_variables(struct workspace *wk, struct configure_file_context 
 					tstr_pushs(wk, out, "");
 					continue;
 				}
+				if (var_patterns.pats[match_idx].type == configure_file_syntax_mesonvar) {
+					configure_file_log(wk,
+						ctx,
+						id_location,
+						log_warn,
+						"variable %.*s not in configuration data",
+						i - id_start,
+						&in->buf[id_start]);
+					uint32_t start = id_start - var_patterns.pats[match_idx].start.len;
+					uint32_t len = i - start + var_patterns.pats[match_idx].end.len;
+					tstr_pushn(wk, out, &in->buf[start], len);
+					i += var_patterns.pats[match_idx].end.len - 1;
+					continue;
+				}
 
 				configure_file_log(wk,
 					ctx,
