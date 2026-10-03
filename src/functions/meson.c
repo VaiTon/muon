@@ -7,6 +7,8 @@
 
 #include "compat.h"
 
+#include <string.h>
+
 #include "args.h"
 #include "backend/common_args.h"
 #include "backend/output.h"
@@ -244,7 +246,16 @@ FUNC_IMPL(meson, is_unity, tc_bool, func_impl_flag_impure)
 		return false;
 	}
 
-	*res = make_obj_bool(wk, false);
+	struct project *proj = current_project(wk);
+	if (!proj) {
+		*res = obj_bool_false;
+		return true;
+	}
+	obj unity;
+	get_option_value(wk, proj, "unity", &unity);
+	const char *mode = get_cstr(wk, unity);
+	*res = make_obj_bool(wk,
+		strcmp(mode, "on") == 0 || (strcmp(mode, "subprojects") == 0 && proj->subproject_name));
 	return true;
 }
 
