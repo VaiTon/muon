@@ -112,21 +112,15 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 
 	obj comp = opts->comp_id;
 	struct obj_compiler *compiler = get_obj_compiler(wk, comp);
+	struct obj_build_target check_target = { .machine = compiler->machine };
 
 	// Set up compiler arguments
 
-	obj compiler_args;
-	compiler_args = make_obj(wk, obj_array);
-
+	obj compiler_args = make_obj(wk, obj_array);
 	obj_array_extend(wk, compiler_args, compiler->cmd_arr[toolchain_component_compiler]);
-
-	obj_array_extend(wk, compiler_args, toolchain_compiler_always(wk, comp));
-
-	ca_get_std_args(wk, comp, current_project(wk), NULL, compiler_args);
-
-	if (compiler->lang == compiler_language_cpp) {
-		obj_array_extend(wk, compiler_args, toolchain_compiler_permissive(wk, comp));
-	}
+	obj_array_extend(wk,
+		compiler_args,
+		ca_get_base_compiler_args(wk, current_project(wk), &check_target, compiler->lang, comp));
 
 	if (opts->werror && opts->werror->set && get_obj_bool(wk, opts->werror->val)) {
 		obj_array_extend(wk, compiler_args, toolchain_compiler_werror(wk, comp));
@@ -140,7 +134,6 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	/* fallthrough */
 	case compiler_check_mode_compile:
 	case compiler_check_mode_preprocess:
-		ca_get_option_compile_args(wk, comp, current_project(wk), NULL, compiler_args);
 		break;
 	}
 

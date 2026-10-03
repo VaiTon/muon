@@ -13,6 +13,11 @@ void ca_get_std_args(struct workspace *wk,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
 	obj args);
+obj ca_get_base_compiler_args(struct workspace *wk,
+	const struct project *proj,
+	const struct obj_build_target *tgt,
+	enum compiler_language lang,
+	obj comp);
 void ca_get_option_compile_args(struct workspace *wk,
 	obj comp,
 	const struct project *proj,
