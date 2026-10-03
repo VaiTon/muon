@@ -434,7 +434,10 @@ endfunc
 
 # TODO: implement yelp
 # TODO: implement gtkdoc
-# TODO: implement gtkdoc_html_dir
+
+func gtkdoc_html_dir(namespace str) -> str
+    return 'share/gtk-doc/html' / namespace
+endfunc
 
 # TODO: check glib >= 2.49.1 for autocleanup
 # TODO: check glib >= 2.56.2 for --body and --output
@@ -806,6 +809,7 @@ endfunc
 
 return {
     'post_install': post_install,
+    'gtkdoc_html_dir': gtkdoc_html_dir,
     'compile_resources': compile_resources,
     'generate_gir': generate_gir,
     'compile_schemas': compile_schemas,
