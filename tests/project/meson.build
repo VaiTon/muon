@@ -14,6 +14,7 @@ tests = [
     ['muon/vala', {'vala': true}],
     ['muon/disabler', {}],
     ['muon/configure_file_cmake', {}],
+    ['muon/configure_file_missing', {}],
     ['muon/compiler_attributes'],
     ['muon/compiler_dependencies'],
     [
