@@ -293,6 +293,119 @@ process_build_tgt_sources_iter(struct workspace *wk, void *_ctx, obj val)
 }
 
 static bool
+unity_language(enum compiler_language lang)
+{
+	switch (lang) {
+	case compiler_language_c:
+	case compiler_language_cpp:
+	case compiler_language_objc:
+	case compiler_language_objcpp: return true;
+	default: return false;
+	}
+}
+
+static void
+unity_write_include(struct workspace *wk, struct tstr *contents, obj source)
+{
+	const char *path = get_file_path(wk, source);
+	tstr_pushs(wk, contents, "#include \"");
+	for (const char *p = path; *p; ++p) {
+		if (*p == '\\' || *p == '"') {
+			tstr_pushn(wk, contents, "\\", 1);
+		}
+		tstr_pushn(wk, contents, p, 1);
+	}
+	tstr_pushs(wk, contents, "\"\n");
+}
+
+static bool
+build_tgt_unity_sources(struct workspace *wk, struct obj_build_target *tgt)
+{
+	struct project *proj = current_project(wk);
+	obj unity_opt, unity_size_opt;
+	get_option_value_overridable(wk, proj, tgt->override_options, "unity", &unity_opt);
+	const char *mode = get_cstr(wk, unity_opt);
+	if (strcmp(mode, "on") != 0 && !(strcmp(mode, "subprojects") == 0 && proj->subproject_name)) {
+		return true;
+	}
+	get_option_value_overridable(wk, proj, tgt->override_options, "unity_size", &unity_size_opt);
+	uint32_t unity_size = (uint32_t)get_obj_number(wk, unity_size_opt);
+
+	obj by_lang[compiler_language_count] = { 0 };
+	for (uint32_t i = 0; i < get_obj_array(wk, tgt->src)->len; ++i) {
+		obj src = obj_array_index(wk, tgt->src, i);
+		enum compiler_language lang;
+		if (filename_to_compiler_language(get_file_path(wk, src), &lang) && unity_language(lang)) {
+			if (!by_lang[lang]) {
+				by_lang[lang] = make_obj(wk, obj_array);
+			}
+			obj_array_push(wk, by_lang[lang], src);
+		}
+	}
+
+	TSTR(unity_dir);
+	path_join(wk, &unity_dir, get_cstr(wk, tgt->private_path), "unity");
+	obj unity_by_source = make_obj(wk, obj_dict);
+	obj unity_files = make_obj(wk, obj_array);
+	for (enum compiler_language lang = compiler_language_c; lang <= compiler_language_objcpp; ++lang) {
+		if (!unity_language(lang) || !by_lang[lang] || get_obj_array(wk, by_lang[lang])->len < 2) {
+			continue;
+		}
+		struct obj_array *sources = get_obj_array(wk, by_lang[lang]);
+		for (uint32_t start = 0, chunk = 0; start < sources->len; start += unity_size, ++chunk) {
+			uint32_t end = start + unity_size < sources->len ? start + unity_size : sources->len;
+			if (end - start < 2) {
+				continue;
+			}
+			TSTR(contents);
+			for (uint32_t i = start; i < end; ++i) {
+				unity_write_include(wk, &contents, obj_array_index(wk, by_lang[lang], i));
+			}
+			TSTR(path);
+			TSTR(filename);
+			tstr_pushf(wk, &filename, "unity_%s_%u.%s", compiler_language_to_s(lang), chunk,
+				compiler_language_extension(lang));
+			path_join(wk, &path, unity_dir.buf, filename.buf);
+			if (!fs_mkdir_p(wk, unity_dir.buf)
+				|| !fs_write_entire_file(path.buf, (const uint8_t *)contents.buf, contents.len)) {
+				return false;
+			}
+			obj unity_file = make_obj(wk, obj_file);
+			*get_obj_file(wk, unity_file) = make_str(wk, path.buf);
+			obj_array_push(wk, unity_files, unity_file);
+			for (uint32_t i = start; i < end; ++i) {
+				obj src = obj_array_index(wk, by_lang[lang], i);
+				obj_dict_set(wk, unity_by_source, *get_obj_file(wk, src), unity_file);
+			}
+		}
+	}
+
+	if (!get_obj_array(wk, unity_files)->len) {
+		return true;
+	}
+	obj new_sources = make_obj(wk, obj_array);
+	obj emitted = make_obj(wk, obj_array);
+	for (uint32_t i = 0; i < get_obj_array(wk, tgt->src)->len; ++i) {
+		obj src = obj_array_index(wk, tgt->src, i);
+		obj unity_file;
+		if (obj_dict_index_strn(wk,
+			    unity_by_source,
+			    get_file_path(wk, src),
+			    strlen(get_file_path(wk, src)),
+			    &unity_file)) {
+			if (!obj_array_in(wk, emitted, unity_file)) {
+				obj_array_push(wk, emitted, unity_file);
+				obj_array_push(wk, new_sources, unity_file);
+			}
+		} else {
+			obj_array_push(wk, new_sources, src);
+		}
+	}
+	tgt->src = new_sources;
+	return true;
+}
+
+static bool
 type_from_kw(struct workspace *wk, uint32_t node, obj t, enum tgt_type *res)
 {
 	const char *tgt_type = get_cstr(wk, t);
@@ -818,6 +931,9 @@ create_target(struct workspace *wk,
 			obj deduped;
 			obj_array_dedup(wk, tgt->src, &deduped);
 			tgt->src = deduped;
+			if (!build_tgt_unity_sources(wk, tgt)) {
+				return false;
+			}
 		}
 
 		if (!get_obj_array(wk, tgt->src)->len && !get_obj_array(wk, tgt->objects)->len
