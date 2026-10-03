@@ -1,0 +1,175 @@
+# SPDX-FileCopyrightText: VaiTon <eyadlorenzo@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-only
+
+fs = import('fs')
+
+func split_args(value str) -> list[str]
+    return value == '' ? [] : value.split('^')
+endfunc
+
+mode = argv[1]
+argv.delete(0)
+argv.delete(0)
+
+if mode == 'install'
+    source = argv[0]
+    destination = environment().get('MESON_INSTALL_DESTDIR_PREFIX')
+    if destination == ''
+        destination = argv[2]
+    endif
+    destination = destination / argv[1]
+    fs.mkdir(destination, make_parents: true)
+    foreach file : fs.glob(source / '*')
+        fs.copy(file, destination / fs.name(file), force: true)
+    endforeach
+else
+    source_root = argv[0]
+    build_root = argv[1]
+    doc_source = argv[2]
+    doc_build = argv[3]
+    module = argv[4]
+    main_file = argv[5]
+    namespace = argv[6]
+    types_file = argv[7]
+    headers = split_args(argv[8])
+    assets = split_args(argv[9])
+    content = split_args(argv[10])
+    ignored = argv[11]
+    scan = argv[12]
+    scangobj = argv[13]
+    mkdb = argv[14]
+    mkhtml = argv[15]
+    fixxref = argv[16]
+    cflags = argv[17]
+    ldflags = argv[18]
+    cc = argv[19]
+    ld = argv[20]
+    run = argv[21]
+    mode = argv[22]
+    expand = argv[23]
+    scanobjs_args = split_args(argv[24])
+    fixxref_args = split_args(argv[25])
+    scan_args = split_args(argv[26])
+    mkdb_args = split_args(argv[27])
+    html_args = split_args(argv[28])
+
+    html = doc_build / 'html'
+    if fs.exists(html)
+        fs.rmdir(html, recursive: true, force: true)
+    endif
+    fs.mkdir(html, make_parents: true)
+
+    foreach file : content
+        if file != ''
+            path = file.startswith('/') ? file : doc_source / file
+            fs.copy(path, doc_build / fs.name(path), force: true)
+        endif
+    endforeach
+    if main_file != '' and not content.contains(main_file)
+        path = main_file.startswith('/') ? main_file : doc_source / main_file
+        if fs.exists(path)
+            fs.copy(path, doc_build / fs.name(path), force: true)
+        endif
+    endif
+
+    foreach asset : assets
+        if asset != ''
+            path = asset.startswith('/') ? asset : doc_source / asset
+            fs.copy(path, html / fs.name(path), force: true)
+        endif
+    endforeach
+
+    source_args = []
+    foreach dir : headers
+        if dir != ''
+            if dir.startswith('/')
+                source_args += ['--source-dir=' + dir]
+            else
+                source_args += [
+                    '--source-dir=' + source_root / dir,
+                    '--source-dir=' + build_root / dir,
+                ]
+            endif
+        endif
+    endforeach
+
+    scan_cmd = [scan, '--module=' + module, '--output-dir=' + doc_build]
+    scan_cmd += source_args
+    if ignored != ''
+        scan_cmd += '--ignore-headers=' + ignored
+    endif
+    scan_cmd += scan_args
+    result = run_command(scan_cmd, check: false, workdir: doc_build)
+    if result.returncode() != 0
+        error(result.stderr())
+    endif
+
+    if types_file != ''
+        if not types_file.startswith('/') and fs.exists(doc_source / types_file)
+            types_file = doc_source / types_file
+        elif not types_file.startswith('/') and fs.exists(doc_build / types_file)
+            types_file = doc_build / types_file
+        endif
+        scangobj_cmd = [
+            scangobj,
+            '--types=' + types_file,
+            '--module=' + module,
+            '--run=' + ' '.join(split_args(run)),
+            '--cflags=' + cflags,
+            '--ldflags=' + ldflags,
+            '--cc=' + cc,
+            '--ld=' + ld,
+            '--output-dir=' + doc_build,
+            scanobjs_args,
+        ]
+        result = run_command(scangobj_cmd, check: false, workdir: build_root)
+        if result.returncode() != 0
+            error(result.stderr())
+        endif
+    endif
+
+    mkdb_cmd = [
+        mkdb,
+        '--module=' + module,
+        '--output-format=xml',
+        '--expand-content-files=' + ' '.join(split_args(expand)),
+    ]
+    mkdb_cmd += source_args
+    if namespace != ''
+        mkdb_cmd += '--name-space=' + namespace
+    endif
+    if mode == 'xml' or (mode == 'auto' and main_file.endswith('xml'))
+        mkdb_cmd += '--xml-mode'
+    elif mode == 'sgml' or (mode == 'auto' and main_file.endswith('sgml'))
+        mkdb_cmd += '--sgml-mode'
+    endif
+    if main_file != ''
+        mkdb_cmd += '--main-sgml-file=' + fs.name(main_file)
+    endif
+    mkdb_cmd += mkdb_args
+    result = run_command(mkdb_cmd, check: false, workdir: doc_build)
+    if result.returncode() != 0
+        error(result.stderr())
+    endif
+
+    html_input = main_file == '' ? module + '-docs.xml' : '../' + main_file
+    result = run_command(
+        [mkhtml, '--path=' + doc_source + ':' + doc_build, module, html_args, html_input],
+        check: false,
+        workdir: html,
+    )
+    if result.returncode() != 0
+        error(result.stderr())
+    endif
+
+    result = run_command(
+        [fixxref, '--module=' + module, '--module-dir=html', fixxref_args],
+        check: false,
+        workdir: doc_build,
+    )
+    if result.returncode() != 0
+        error(result.stderr())
+    endif
+
+    fs.write(doc_build / (module + '-decl.txt'), 'GTK-doc generated')
+endif
