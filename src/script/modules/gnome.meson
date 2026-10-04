@@ -518,6 +518,7 @@ func gtkdoc(
     endforeach
 
     cflags = c_args
+    runtime_lib_dirs = []
     foreach dir : include_directories
         cflags += '-I' + (typeof(dir) == 'inc' ? dir.full_path() : dir)
     endforeach
@@ -541,6 +542,10 @@ func gtkdoc(
                 actual_lib = typeof(lib) == 'both_libs' ? lib.get_shared_lib() : lib
                 ldflags += actual_lib.full_path()
                 depends += actual_lib
+                lib_dir = fs.parent(actual_lib.full_path())
+                if not runtime_lib_dirs.contains(lib_dir)
+                    runtime_lib_dirs += lib_dir
+                endif
             endif
         endforeach
         foreach target_dep : partial.get_variable('link_targets')
@@ -556,6 +561,21 @@ func gtkdoc(
     mkdb = find_program('gtkdoc-mkdb')
     mkhtml = find_program('gtkdoc-mkhtml')
     fixxref = find_program('gtkdoc-fixxref')
+
+    gtkdoc_env = environment()
+    runtime_path_var = 'LD_LIBRARY_PATH'
+    runtime_path_separator = ':'
+    if host_machine.system() == 'darwin'
+        runtime_path_var = 'DYLD_LIBRARY_PATH'
+    elif host_machine.system() == 'haiku'
+        runtime_path_var = 'LIBRARY_PATH'
+    elif host_machine.system() == 'windows'
+        runtime_path_var = 'PATH'
+        runtime_path_separator = ';'
+    endif
+    foreach dir : runtime_lib_dirs
+        gtkdoc_env.prepend(runtime_path_var, dir, separator: runtime_path_separator)
+    endforeach
 
     command = [
         meson.argv0(),
@@ -598,6 +618,7 @@ func gtkdoc(
         build_by_default: true,
         output: modulename + '-decl.txt',
         build_always_stale: true,
+        env: gtkdoc_env,
         command: command,
         depends: depends,
     )
