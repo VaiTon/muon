@@ -187,6 +187,9 @@ muon_pkgconfig_parse_fragment(struct workspace *wk, const struct muon_pkgconfig_
 				make_obj(wk, info->libdirs);
 			}
 			obj_array_push(wk, info->libdirs, frag->data);
+			/* Keep the search path for libraries that cannot be resolved
+			 * to an existing file at configure time. */
+			obj_array_push(wk, default_dest, make_strf(wk, "-L%s", get_cstr(wk, frag->data)));
 		}
 		break;
 	}
