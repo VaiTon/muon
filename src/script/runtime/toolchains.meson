@@ -968,6 +968,8 @@ toolchain.register_compiler(
             return 'D9002' in s
         endfunc,
         'compile_only': ['/c'],
+        'lto_compile': ['/GL'],
+        'lto_link': ['/LTCG'],
         'crt': func(_c compiler, s str, debug bool) -> list[str]
             s = crt_opt_normalize(s, debug)
             if s == 'none'
@@ -1090,6 +1092,10 @@ toolchain.register_compiler(
         return 'CL.EXE COMPATIBILITY' in out ? 100 : 0
     endfunc,
     handlers: {
+        # clang-cl uses LLVM LTO rather than MSVC's /GL and /LTCG.
+        # Keep LTO disabled here until its LLVM handlers are implemented.
+        'lto_compile': [],
+        'lto_link': [],
         'force_language': func(_c compiler, s str) -> list[str]
             return ['-x', s]
         endfunc,
