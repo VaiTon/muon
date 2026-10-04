@@ -595,6 +595,7 @@ func gtkdoc(
     ]
     target = custom_target(
         modulename + '-doc',
+        build_by_default: true,
         output: modulename + '-decl.txt',
         build_always_stale: true,
         command: command,
