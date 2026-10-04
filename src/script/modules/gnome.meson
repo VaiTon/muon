@@ -538,6 +538,12 @@ func gtkdoc(
         foreach lib : partial.get_variable('link_with')
             if typeof(lib) == 'str'
                 ldflags += lib
+                if lib.startswith(meson.project_build_root())
+                    lib_dir = fs.parent(lib)
+                    if not runtime_lib_dirs.contains(lib_dir)
+                        runtime_lib_dirs += lib_dir
+                    endif
+                endif
             else
                 actual_lib = typeof(lib) == 'both_libs' ? lib.get_shared_lib() : lib
                 ldflags += actual_lib.full_path()
@@ -1016,7 +1022,59 @@ func genmarshal(
     return [body, header]
 endfunc
 
-# TODO: implement generate_vapi
+func generate_vapi(
+    library str,
+    install bool: true,
+    install_dir str:,
+    sources listify[custom_tgt|file|str]:,
+    vapi_dirs listify[str]: [],
+    metadata_dirs listify[str]: [],
+    gir_dirs listify[str]: [],
+    packages listify[str]: [],
+) -> dep
+    source_dir = meson.current_source_dir()
+    install_dir = is_null(install_dir) ? get_option('datadir') / 'vala' / 'vapi' : install_dir
+
+    vapigen = find_program('vapigen')
+    command = [
+        vapigen,
+        '--quiet',
+        '--library=' + library,
+        '--directory=@OUTDIR@',
+    ]
+    foreach dir : vapi_dirs
+        command += '--vapidir=' + (dir.startswith('/') ? dir : source_dir / dir)
+    endforeach
+    foreach dir : metadata_dirs
+        command += '--metadatadir=' + (dir.startswith('/') ? dir : source_dir / dir)
+    endforeach
+    foreach dir : gir_dirs
+        command += '--girdir=' + (dir.startswith('/') ? dir : source_dir / dir)
+    endforeach
+    foreach package : packages
+        command += '--pkg=' + package
+    endforeach
+    command += '--metadatadir=' + source_dir
+
+    vapi = custom_target(
+        library + '.vapi',
+        input: sources,
+        output: library + '.vapi',
+        build_by_default: true,
+        install: install,
+        install_dir: install_dir,
+        install_tag: 'devel',
+        command: command + ['@INPUT@'],
+    )
+    deps_content = packages.length() == 0 ? '' : '\n'.join(packages) + '\n'
+    configure_file(
+        output: library + '.deps',
+        content: deps_content,
+        install: install,
+        install_dir: install_dir,
+    )
+    return declare_dependency(sources: [vapi])
+endfunc
 
 return {
     'post_install': post_install,
@@ -1029,4 +1087,5 @@ return {
     'mkenums': mkenums,
     'mkenums_simple': mkenums_simple,
     'genmarshal': genmarshal,
+    'generate_vapi': generate_vapi,
 }
