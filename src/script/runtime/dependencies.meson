@@ -151,6 +151,27 @@ func qt_pkgconfig_dependency(prefix str, modules list[str]:, kwargs glob[any]:) 
 endfunc
 
 meson.register_dependency_handler(
+    'valgrind',
+    pkgconfig: func(_ glob[any]:) -> dep
+        pkgconfig_exe = find_program('pkg-config', 'pkgconf', required: false)
+        if not pkgconfig_exe.found()
+            return not_found()
+        endif
+
+        cflags = run_command(pkgconfig_exe, '--cflags', 'valgrind', check: false)
+        if cflags.returncode() != 0
+            return not_found()
+        endif
+
+        version = run_command(pkgconfig_exe, '--modversion', 'valgrind', check: true)
+        return declare_dependency(
+            compile_args: cflags.stdout().shell_split(shell: 'posix'),
+            version: version.stdout().strip(),
+        )
+    endfunc,
+)
+
+meson.register_dependency_handler(
     'qt5',
     pkgconfig: func(modules list[str]:, kwargs glob[any]:) -> dep
         return qt_pkgconfig_dependency('Qt5', modules: modules, kwargs: kwargs)
