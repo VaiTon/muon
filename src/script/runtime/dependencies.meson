@@ -129,6 +129,22 @@ meson.register_dependency_handler(
 )
 
 meson.register_dependency_handler(
+    'qt6',
+    pkgconfig: func(modules list[str]:, kwargs glob[any]:) -> dep
+        if is_null(modules) or modules.length() == 0
+            error('No Qt6 modules specified.')
+        endif
+
+        dependencies = []
+        foreach module : modules
+            dependencies += dependency('Qt6' + module, method: 'pkg-config', kwargs: kwargs)
+        endforeach
+
+        return declare_dependency(dependencies: dependencies)
+    endfunc,
+)
+
+meson.register_dependency_handler(
     'objfw',
     config_tool: func(modules list[str]:, native bool:, static bool:, _ glob[any]:) -> dep
         objfwconfig = find_program('objfw-config', required: false)
