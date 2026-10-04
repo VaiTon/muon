@@ -357,7 +357,8 @@ ca_get_base_compiler_args(struct workspace *wk,
 	const struct project *proj,
 	const struct obj_build_target *tgt,
 	enum compiler_language lang,
-	obj comp)
+	obj comp,
+	bool include_project_args)
 {
 	// struct obj_compiler *comp = get_obj_compiler(wk, comp_id);
 	struct ca_buildtype buildtype;
@@ -388,7 +389,7 @@ ca_get_base_compiler_args(struct workspace *wk,
 		}
 	}
 
-	{ /* project args */
+	if (include_project_args) { /* project args */
 		obj proj_args;
 		if (obj_dict_geti(wk, proj->args[machine], lang, &proj_args)) {
 			obj_array_extend(wk, args, proj_args);
@@ -508,7 +509,7 @@ ca_prepare_target_args(struct workspace *wk, const struct project *proj, struct 
 			return false;
 		}
 
-		obj args = ca_get_base_compiler_args(wk, proj, tgt, lang, comp);
+		obj args = ca_get_base_compiler_args(wk, proj, tgt, lang, comp, true);
 
 		if (tgt->flags & build_tgt_flag_pic) {
 			obj_array_extend(wk, args, toolchain_compiler_pic(wk, comp));
