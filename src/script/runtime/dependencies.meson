@@ -153,14 +153,14 @@ endfunc
 meson.register_dependency_handler(
     'qt5',
     pkgconfig: func(modules list[str]:, kwargs glob[any]:) -> dep
-        return qt_pkgconfig_dependency('Qt5', modules, kwargs)
+        return qt_pkgconfig_dependency('Qt5', modules: modules, kwargs: kwargs)
     endfunc,
 )
 
 meson.register_dependency_handler(
     'qt6',
     pkgconfig: func(modules list[str]:, kwargs glob[any]:) -> dep
-        return qt_pkgconfig_dependency('Qt6', modules, kwargs)
+        return qt_pkgconfig_dependency('Qt6', modules: modules, kwargs: kwargs)
     endfunc,
 )
 
