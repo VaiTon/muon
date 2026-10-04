@@ -1001,6 +1001,14 @@ FUNC_IMPL(module_pkgconfig, generate, tc_file, func_impl_flag_impure)
 		return false;
 	}
 
+	// Keep Muon's historical path available while Meson-compatible consumers use meson-private.
+	TSTR(muon_path);
+	path_join(wk, &muon_path, wk->muon_private, get_cstr(wk, filebase));
+	tstr_pushs(wk, &muon_path, ".pc");
+	if (!module_pkgconf_write(wk, muon_path.buf, &pc)) {
+		return false;
+	}
+
 	if (mainlib) {
 		get_obj_build_target(wk, mainlib)->generated_pc = filebase;
 	}
