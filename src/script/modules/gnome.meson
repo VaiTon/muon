@@ -1067,12 +1067,11 @@ func generate_vapi(
         command: command + ['@INPUT@'],
     )
     deps_content = packages.length() == 0 ? '' : '\n'.join(packages) + '\n'
-    configure_file(
-        output: library + '.deps',
-        content: deps_content,
-        install: install,
-        install_dir: install_dir,
-    )
+    deps_file = meson.current_build_dir() / (library + '.deps')
+    fs.write(deps_file, deps_content)
+    if install
+        install_data(deps_file, install_dir: install_dir, install_tag: 'devel')
+    endif
     return declare_dependency(sources: [vapi])
 endfunc
 
