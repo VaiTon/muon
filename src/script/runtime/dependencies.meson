@@ -128,19 +128,67 @@ meson.register_dependency_handler(
     endfunc,
 )
 
+func qt_pkgconfig_dependency(prefix str, modules list[str]:, kwargs glob[any]:) -> dep
+    if is_null(modules) or modules.length() == 0
+        error(f'No {prefix} modules specified.')
+    endif
+
+    dependencies = []
+    version = ''
+    foreach module : modules
+        dep = dependency(prefix + module, method: 'pkg-config', kwargs: kwargs)
+        if not dep.found()
+            return dep
+        endif
+
+        dependencies += dep
+        if module == 'Core' or version == ''
+            version = dep.version()
+        endif
+    endforeach
+
+    return declare_dependency(dependencies: dependencies, version: version)
+endfunc
+
+meson.register_dependency_handler(
+    'qt5',
+    pkgconfig: func(modules list[str]:, kwargs glob[any]:) -> dep
+        return qt_pkgconfig_dependency('Qt5', modules, kwargs)
+    endfunc,
+)
+
 meson.register_dependency_handler(
     'qt6',
     pkgconfig: func(modules list[str]:, kwargs glob[any]:) -> dep
-        if is_null(modules) or modules.length() == 0
-            error('No Qt6 modules specified.')
+        return qt_pkgconfig_dependency('Qt6', modules, kwargs)
+    endfunc,
+)
+
+meson.register_dependency_handler(
+    'boost',
+    system: func(modules list[str]: [], native bool:, static bool:, _ glob[any]:) -> dep
+        cpp = meson.get_compiler('cpp', native: native)
+        if not cpp.has_header('boost/version.hpp')
+            return not_found()
         endif
+
+        version_define = cpp.get_define('BOOST_LIB_VERSION', prefix: '#include <boost/version.hpp>')
+        version_parts = version_define.strip('"').split('_')
+        if version_parts.length() < 2
+            return not_found()
+        endif
+        version = version_parts[0] + '.' + version_parts[1] + '.0'
 
         dependencies = []
         foreach module : modules
-            dependencies += dependency('Qt6' + module, method: 'pkg-config', kwargs: kwargs)
+            dep = cpp.find_library('boost_' + module, static: static, required: false)
+            if not dep.found()
+                return not_found()
+            endif
+            dependencies += dep
         endforeach
 
-        return declare_dependency(dependencies: dependencies)
+        return declare_dependency(dependencies: dependencies, version: version)
     endfunc,
 )
 
