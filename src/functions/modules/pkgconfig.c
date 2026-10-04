@@ -7,6 +7,7 @@
 #include "compat.h"
 
 #include "args.h"
+#include "backend/output.h"
 #include "buf_size.h"
 #include "error.h"
 #include "external/pkgconfig.h"
@@ -988,7 +989,12 @@ FUNC_IMPL(module_pkgconfig, generate, tc_file, func_impl_flag_impure)
 	}
 
 	TSTR(path);
-	path_join(wk, &path, wk->muon_private, get_cstr(wk, filebase));
+	TSTR(pc_dir);
+	path_join(wk, &pc_dir, wk->build_root, output_path.meson_private_dir);
+	if (!fs_mkdir(pc_dir.buf, true)) {
+		return false;
+	}
+	path_join(wk, &path, pc_dir.buf, get_cstr(wk, filebase));
 	tstr_pushs(wk, &path, ".pc");
 
 	if (!module_pkgconf_write(wk, path.buf, &pc)) {
