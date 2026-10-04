@@ -21,6 +21,7 @@ foreach s : [
     'lib/cmake_prelude.meson',
     'modules/gnome.meson',
     'modules/i18n.meson',
+    'modules/qt6.meson',
     'modules/snippets.meson',
     'modules/unstable-simd.meson',
     'modules/wayland.meson',

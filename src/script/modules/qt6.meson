@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: VaiTon <eyadlorenzo@gmail.com>
+# SPDX-License-Identifier: GPL-3.0-only
+
+fs = import('fs')
+
+M = {}
+
+## Generate Qt meta-object code for headers and sources
+M.preprocess = func(
+    moc_headers listify[file|str]: [],
+    moc_sources listify[file|str]: [],
+    moc_extra_arguments listify[str]: [],
+) -> list[custom_tgt]
+    if moc_headers.length() == 0 and moc_sources.length() == 0
+        return []
+    endif
+
+    qt_dep = dependency('qt6', modules: ['Core'])
+    host_bins = qt_dep.get_pkgconfig_variable('host_bins', default: '')
+    libexecdir = qt_dep.get_pkgconfig_variable('libexecdir', default: '')
+
+    if host_bins != '' and fs.exists(host_bins / 'moc')
+        moc = find_program(host_bins / 'moc', native: true)
+    elif libexecdir != '' and fs.exists(libexecdir / 'moc')
+        moc = find_program(libexecdir / 'moc', native: true)
+    else
+        moc = find_program('moc-qt6', 'moc', native: true)
+    endif
+
+    generated = []
+    foreach input : moc_headers + moc_sources
+        input_path = typeof(input) == 'file' ? input.full_path() : input
+        basename = input_path.split('/')[-1].split('.')[0]
+        output = 'moc_' + basename + '.cpp'
+        generated += custom_target(
+            'qt6_moc_' + basename,
+            input: input,
+            output: output,
+            command: [moc, moc_extra_arguments, '@INPUT@', '-o', '@OUTPUT@'],
+        )
+    endforeach
+
+    return generated
+endfunc
+
+return M
