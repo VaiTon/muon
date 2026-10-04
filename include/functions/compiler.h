@@ -52,6 +52,7 @@ struct compiler_check_opts {
 	bool keep_cmd_ctx;
 	bool output_is_stdout;
 	bool dont_log_compiler_output;
+	bool exclude_project_args;
 	const char *output_path;
 
 	bool from_cache;

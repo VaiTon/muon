@@ -120,7 +120,8 @@ compiler_check(struct workspace *wk, struct compiler_check_opts *opts, const cha
 	obj_array_extend(wk, compiler_args, compiler->cmd_arr[toolchain_component_compiler]);
 	obj_array_extend(wk,
 		compiler_args,
-		ca_get_base_compiler_args(wk, current_project(wk), &check_target, compiler->lang, comp));
+		ca_get_base_compiler_args(
+			wk, current_project(wk), &check_target, compiler->lang, comp, !opts->exclude_project_args));
 
 	if (opts->werror && opts->werror->set && get_obj_bool(wk, opts->werror->val)) {
 		obj_array_extend(wk, compiler_args, toolchain_compiler_werror(wk, comp));
@@ -1783,6 +1784,7 @@ compiler_has_argument(struct workspace *wk,
 		.comp_id = comp_id,
 		.args = args,
 		.keep_cmd_ctx = true,
+		.exclude_project_args = true,
 	};
 
 	const char *src = "int main(void){}\n";
