@@ -12,6 +12,23 @@ func splitext(file file|str) -> str
     return f
 endfunc
 
+func collect_source_include_dirs(sources list[any], include_dirs list[str]) -> list[str]
+    foreach source : sources
+        if typeof(source) == 'list'
+            include_dirs = collect_source_include_dirs(source, include_dirs)
+        else
+            source_dir = fs.parent(source.full_path())
+            source_parent = fs.parent(source_dir)
+            foreach dir : [source_dir, source_parent]
+                if not include_dirs.contains(dir)
+                    include_dirs += dir
+                endif
+            endforeach
+        endif
+    endforeach
+    return include_dirs
+endfunc
+
 func post_install(
     glib_compile_schemas bool: false,
     gio_querymodules listify[str]: [],
@@ -365,16 +382,7 @@ func generate_gir(
         endif
     endforeach
 
-    source_include_dirs = []
-    foreach src : source_files
-        source_include_dir = fs.parent(src.full_path())
-        source_include_parent = fs.parent(source_include_dir)
-        foreach include_dir : [source_include_dir, source_include_parent]
-            if not source_include_dirs.contains(include_dir)
-                source_include_dirs += include_dir
-            endif
-        endforeach
-    endforeach
+    source_include_dirs = collect_source_include_dirs(source_files, [])
     foreach source_include_dir : source_include_dirs
         scan_command += ['-I' + source_include_dir]
     endforeach
