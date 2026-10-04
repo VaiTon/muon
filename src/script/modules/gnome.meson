@@ -554,6 +554,11 @@ func gtkdoc(
             endif
         endforeach
     endforeach
+    if host_machine.system() != 'windows'
+        foreach dir : runtime_lib_dirs
+            ldflags += '-Wl,-rpath,' + dir
+        endforeach
+    endif
 
     cc = meson.get_compiler('c')
     scan = find_program('gtkdoc-scan')
