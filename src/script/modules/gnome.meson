@@ -536,17 +536,39 @@ func gtkdoc(
     fixxref = find_program('gtkdoc-fixxref')
 
     command = [
-        meson.argv0(), 'internal', 'eval', '-e', 'commands/gtkdoc.meson',
-        'build', source_root, build_root, doc_source, doc_build,
-        modulename, main_file, namespace,
+        meson.argv0(),
+        'internal',
+        'eval',
+        '-e', 'commands/gtkdoc.meson',
+        'build',
+        source_root,
+        build_root,
+        doc_source,
+        doc_build,
+        modulename,
+        main_file,
+        namespace,
         is_null(gobject_typesfile) ? '' : gobject_typesfile,
-        '^'.join(headers), '^'.join(assets), '^'.join(content),
-        ' '.join(ignore_headers), scan.full_path(), scangobj.full_path(),
-        mkdb.full_path(), mkhtml.full_path(), fixxref.full_path(),
-        ' '.join(cflags), ' '.join(ldflags), ' '.join(cc.cmd_array()),
-        ' '.join(cc.cmd_array()), '^'.join(run), mode,
-        '^'.join(expand_content_files), '^'.join(scanobjs_args),
-        '^'.join(fixxref_args), '^'.join(scan_args), '^'.join(mkdb_args),
+        '^'.join(headers),
+        '^'.join(assets),
+        '^'.join(content),
+        ' '.join(ignore_headers),
+        scan.full_path(),
+        scangobj.full_path(),
+        mkdb.full_path(),
+        mkhtml.full_path(),
+        fixxref.full_path(),
+        ' '.join(cflags),
+        ' '.join(ldflags),
+        ' '.join(cc.cmd_array()),
+        ' '.join(cc.cmd_array()),
+        '^'.join(run),
+        mode,
+        '^'.join(expand_content_files),
+        '^'.join(scanobjs_args),
+        '^'.join(fixxref_args),
+        '^'.join(scan_args),
+        '^'.join(mkdb_args),
         '^'.join(html_args),
     ]
     target = custom_target(
@@ -561,8 +583,14 @@ func gtkdoc(
         install_name = modulename + (module_version == '' ? '' : '-' + module_version)
         html_dir = is_null(install_dir) ? get_option('datadir') / 'gtk-doc/html' / install_name : install_dir
         meson.add_install_script(
-            meson.argv0(), 'internal', 'eval', '-e', 'commands/gtkdoc.meson',
-            'install', doc_build / 'html', html_dir, get_option('prefix'),
+            meson.argv0(),
+            'internal',
+            'eval',
+            '-e', 'commands/gtkdoc.meson',
+            'install',
+            doc_build / 'html',
+            html_dir,
+            get_option('prefix'),
         )
     endif
 

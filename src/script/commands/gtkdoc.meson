@@ -154,7 +154,13 @@ else
 
     html_input = main_file == '' ? module + '-docs.xml' : '../' + main_file
     result = run_command(
-        [mkhtml, '--path=' + doc_source + ':' + doc_build, module, html_args, html_input],
+        [
+            mkhtml,
+            '--path=' + doc_source + ':' + doc_build,
+            module,
+            html_args,
+            html_input,
+        ],
         check: false,
         workdir: html,
     )
